@@ -2,6 +2,8 @@ import { env } from "#env";
 
 // Token cache em memória para evitar pedir refresh toda hora
 let cachedAccessToken: string | null = env.TWITCH_USER_TOKEN ?? null;
+let tokenExpiresAt: number | null = null;
+let refreshTimeout: NodeJS.Timeout | null = null;
 
 export function getCachedTwitchAccessToken() {
 	return cachedAccessToken;
@@ -13,6 +15,7 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 		return cachedAccessToken;
 	}
 
+
 	const clientId = env.TWITCH_CLIENT_ID;
 	const clientSecret = env.TWITCH_CLIENT_SECRET;
 	const refreshToken = env.TWITCH_REFRESH_TOKEN;
@@ -21,6 +24,7 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 		console.warn("[TwitchAuth] Client ID/secret ou refresh token não configurados. Usando TWITCH_USER_TOKEN fixo.");
 		return env.TWITCH_USER_TOKEN ?? null;
 	}
+
 
 	// Faz refresh do token de usuário
 	const params = new URLSearchParams({
@@ -55,12 +59,33 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 		console.error("[TwitchAuth] Resposta de refresh não contém access_token");
 		return env.TWITCH_USER_TOKEN ?? null;
 	}
-
 	cachedAccessToken = data.access_token;
+	// Armazena o timestamp de expiração
+	if (data.expires_in) {
+		tokenExpiresAt = Date.now() + data.expires_in * 1000;
+	} else {
+		tokenExpiresAt = null;
+	}
 
-	// Opcional: log simples para debug (sem mostrar o token)
-	console.log("[TwitchAuth] Token de acesso da Twitch renovado com sucesso.");
+	// Agenda renovação automática 5 minutos antes de expirar
+	if (tokenExpiresAt) {
+		const msBeforeRefresh = Math.max(tokenExpiresAt - Date.now() - 5 * 60 * 1000, 0);
+		if (refreshTimeout) clearTimeout(refreshTimeout);
+		refreshTimeout = setTimeout(() => {
+			cachedAccessToken = null; // força refresh
+			getTwitchAccessToken().then(() => {
+				console.log("[TwitchAuth] Token renovado automaticamente antes de expirar.");
+			});
+		}, msBeforeRefresh);
+		console.log(`[TwitchAuth] Token renovado. Próxima renovação em ${(msBeforeRefresh/1000/60).toFixed(1)} minutos.`);
+	} else {
+		console.log("[TwitchAuth] Token renovado, mas sem info de expiração.");
+	}
 
 	return cachedAccessToken;
+}
+
+export function getTokenTimeLeft() {
+	return tokenExpiresAt ? tokenExpiresAt - Date.now() : 0;
 }
 
