@@ -1,11 +1,12 @@
 import { env } from "#env";
 import tmi from "tmi.js";
 import { setTwitchClient } from "../services/twitch.js";
-import { getTwitchAccessToken, getTokenTimeLeft } from "../services/twitchAuth.js";
+import { getTokenTimeLeft, getTwitchAccessToken } from "../services/twitchAuth.js";
 import { getTwitchCommands } from "./base.js";
 
 import { handleTwitchMessage } from "./events/listener.js";
-import { startWatchTracker, processChatActivity } from "./events/viewertracker.js";
+import { processSubscription } from "./events/subTracker.js";
+import { processChatActivity, startWatchTracker } from "./events/viewertracker.js";
 
 // Twitch Commands
 import "./commands/discord.js";
@@ -55,6 +56,10 @@ async function bootstrapTwitchClient() {
 
             // registra atividade no tracker
             await processChatActivity(channel, tags);
+
+            // registra evento de subscription
+            await processSubscription(tags);
+
 
             // comandos do chat
             if (message.startsWith("!")) {
