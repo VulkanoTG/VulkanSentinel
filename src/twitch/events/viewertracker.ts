@@ -1,11 +1,11 @@
 import { prisma } from "#database";
 import { isStreamOnline } from "#helix";
+import { calculateChannelPoints } from "../../services/channelPoints.js";
 import { getTwitchClient } from "../../services/twitch.js";
 
 /* CONFIG */
 
 const WATCH_INTERVAL_MINUTES = 10;
-const POINTS_PER_INTERVAL = 30;
 const ACTIVE_WINDOW_MINUTES = 15;
 const WARNING_COOLDOWN_MINUTES = 30;
 
@@ -107,17 +107,20 @@ export function startWatchTracker() {
 
       if (activeUsers.length === 0) return;
 
-      const ids = activeUsers.map(u => u.id);
+      for (const activeUser of activeUsers) {
+        const reward = await calculateChannelPoints({
+          userId: activeUser.id,
+          baseHours: WATCH_INTERVAL_MINUTES / 60,
+        });
 
-      await prisma.user.updateMany({
-        where: {
-          id: { in: ids }
-        },
-        data: {
-          balance: { increment: POINTS_PER_INTERVAL },
-          hoursWatched: { increment: WATCH_INTERVAL_MINUTES / 60 }
-        }
-      });
+        await prisma.user.update({
+          where: { id: activeUser.id },
+          data: {
+            balance: { increment: reward.points },
+            hoursWatched: { increment: reward.hours }
+          }
+        });
+      }
 
     } catch (err) {
 

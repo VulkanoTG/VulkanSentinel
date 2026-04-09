@@ -23,4 +23,6 @@ export const env = await validateEnv(z.looseObject({
     TWITCH_REFRESH_TOKEN: z.string().optional(),
     TWITCH_USERNAME: z.string("Twitch username is required").min(1),
     TWITCH_REDIRECT_URI: z.string("CallbackUrl is required").min(1),
+    TWITCH_EVENTSUB_CALLBACK: z.url().optional(),
+    TWITCH_EVENTSUB_SECRET: z.string().min(10).optional(),
 }));

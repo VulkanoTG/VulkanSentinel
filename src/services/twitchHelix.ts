@@ -17,6 +17,7 @@ type TwitchStream = {
   user_id: string;
   user_name: string;
   game_id: string;
+  game_name: string;
   type: "live";
   title: string;
   viewer_count: number;
@@ -32,7 +33,7 @@ type TwitchStreamsResponse = {
 
 
 // -- Get Twitch user ID --
-async function getUserId(login: string): Promise<string | null> {
+export async function getUserId(login: string): Promise<string | null> {
   const lc = login.toLowerCase().trim();
   const clientId = env.TWITCH_CLIENT_ID;
   const userToken = await getTwitchAccessToken();
@@ -175,5 +176,64 @@ export async function isStreamOnline(): Promise<boolean> {
   const data = (await res.json()) as TwitchStreamsResponse;
 
   return data.data.length > 0;
+}
+
+export async function getCurrentStream() {
+  const clientId = env.TWITCH_CLIENT_ID;
+  const userToken = await getTwitchAccessToken();
+  const broadcasterId = env.TWITCH_BROADCASTER_ID;
+
+  if (!clientId || !userToken || !broadcasterId) {
+    throw new Error("Missing Twitch environment variables");
+  }
+
+  const res = await fetch(
+    `https://api.twitch.tv/helix/streams?user_id=${broadcasterId}`,
+    {
+      method: "GET",
+      headers: {
+        "Client-ID": clientId,
+        Authorization: `Bearer ${userToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Erro Twitch API: ${errorText}`);
+  }
+
+  const data = (await res.json()) as TwitchStreamsResponse;
+
+  return data.data[0] ?? null;
+}
+
+export async function getCurrentStreamByUserId(userId: string) {
+  const clientId = env.TWITCH_CLIENT_ID;
+  const userToken = await getTwitchAccessToken();
+
+  if (!clientId || !userToken || !userId) {
+    throw new Error("Missing Twitch environment variables");
+  }
+
+  const res = await fetch(
+    `https://api.twitch.tv/helix/streams?user_id=${userId}`,
+    {
+      method: "GET",
+      headers: {
+        "Client-ID": clientId,
+        Authorization: `Bearer ${userToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Erro Twitch API: ${errorText}`);
+  }
+
+  const data = (await res.json()) as TwitchStreamsResponse;
+
+  return data.data[0] ?? null;
 }
 

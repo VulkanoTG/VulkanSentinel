@@ -22,6 +22,7 @@ model User {
   discordId     String   @unique
   twitchId      String?  @unique
   isTwitchSub Boolean  @default(false)
+  isDiscordBooster Boolean @default(false)
   
   hoursWatched  Float    @default(0)
   balance       Int      @default(100)

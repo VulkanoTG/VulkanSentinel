@@ -1,220 +1,193 @@
 # Vulkan Sentinel
 
-Vulkan Sentinel é um bot integrado para **Discord** e **Twitch**, escrito em TypeScript, que conecta o chat da Twitch ao seu servidor Discord, além de oferecer uma base para comandos e integrações adicionais.
-
-### Funcionalidades
-
-- **Bot de Discord** usando `discord.js` e `@constatic/base`.
-- **Bot de Twitch (tmi.js)** com:
-  - Conexão via OAuth.
-  - Sistema de comandos via chat (ex.: `!test`).
-  - Encaminhamento de mensagens da Twitch para um canal de logs no Discord.
-- **Integração com Twitch Helix**:
-  - Envio de whispers (`sendTwitchWhisper`).
-  - Resolução de usuários da Twitch via API Helix.
-- **Renovação automática de token da Twitch**:
-  - Utiliza `TWITCH_REFRESH_TOKEN` + `TWITCH_CLIENT_ID` + `TWITCH_CLIENT_SECRET` para obter novos access tokens.
-  - Fallback para `TWITCH_USER_TOKEN` quando o refresh não estiver configurado.
+Vulkan Sentinel é um bot integrado de **Discord + Twitch** escrito em TypeScript. Ele unifica chat, comandos, tickets e dados de usuário entre as duas plataformas, com suporte a OAuth, EventSub, sistema de pontos e notificações.
 
 ---
 
-## Requisitos
+## 📌 Funcionalidades principais
 
-- Node.js 18+.
-- Conta de desenvolvedor na **Twitch** com um aplicativo registrado.
-- Bot de **Discord** criado e adicionado ao seu servidor.
-
----
-
-## Instalação
-
-```bash
-pnpm install  # ou npm install / yarn install
-```
-
----
-
-## Configuração de ambiente
-
-O projeto usa um arquivo `.env` (baseado em `.env.example`). Campos principais:
-
-```env
-BOT_TOKEN=                # Token do bot do Discord
-GUILD_ID=                 # (opcional) ID da guild principal
-GUILD_BOT_CHANNEL_ID=     # Canal padrão do bot no Discord
-
-INTEGRATION_LOGS_CHANNEL_ID= # Canal de logs de integrações no Discord
-
-TWITCH_CHANNEL=           # Nome do canal do streamer que o bot vai monitorar
-TWITCH_USERNAME=          # Nome de usuário do bot da Twitch
-TWITCH_CLIENT_ID=         # Client ID do app Twitch
-TWITCH_USER_TOKEN=        # (opcional) Token fixo do bot (oauth sem prefixo)
-TWITCH_BOT_ID=            # ID numérico do bot na Twitch
-TWITCH_CLIENT_SECRET=     # Secret do app Twitch (para refresh)
-TWITCH_REFRESH_TOKEN=     # Refresh token da Twitch
-TWITCH_REDIRECT_URI=      # twitch bot redirectURL
-DATABASE_URL=             # Database URL
-```
-
-### Como funciona o refresh do token da Twitch
-
-- Arquivo `src/services/twitchAuth.ts`:
-  - Tenta usar um token em cache.
-  - Se não houver, faz `POST https://id.twitch.tv/oauth2/token` com `grant_type=refresh_token`.
-  - Armazena o `access_token` em memória e o reutiliza.
-  - Se algo falhar, volta a usar `TWITCH_USER_TOKEN`.
-- Esse token é usado:
-  - No **login do bot de Twitch** (`src/twitch/index.ts`), convertido para o formato `oauth:<token>` exigido pelo `tmi.js`.
-  - Nas chamadas da **API Helix** em `src/services/twitchHelix.ts`.
-
-> Importante: para que o refresh funcione, o `TWITCH_REFRESH_TOKEN` precisa ter sido obtido com os escopos corretos (por exemplo `chat:read`, `chat:edit`, `user:manage:whispers`, etc., conforme o que você usa).
+- ✅ Integração Discord + Twitch
+- ✅ Ponte de mensagens Twitch → Discord
+- ✅ Comandos de chat Twitch: `!discord`, `!test`
+- ✅ Slash commands Discord: `/ping`, `/link`, `/profile`, `/live`, `/transferir`
+- ✅ Vinculação de conta Discord ↔ Twitch via OAuth
+- ✅ Painel de tickets Discord com abertura, aceitação e transferência
+- ✅ Monitoramento de viewers ativos e recompensa de pontos
+- ✅ Notificações de live de parceiros
+- ✅ Suporte a Twitch EventSub via webhook
+- ✅ Persistência de dados com Prisma + PostgreSQL
 
 ---
 
-## Scripts
+## 🚀 Requisitos
 
-Definidos em `package.json`:
-
-- **`pnpm dev`**: roda o bot em modo desenvolvimento usando `tsx` e `.env`.
-- **`pnpm dev:dev`**: roda usando `.env.dev`.
-- **`pnpm watch`**: watch em desenvolvimento com `.env`.
-- **`pnpm watch:dev`**: watch com `.env.dev`.
-- **`pnpm build`**: compila TypeScript para `build/`.
-- **`pnpm start`**: executa a versão compilada (`node --env-file=.env .`).
-
-Adapte os comandos para `npm`/`yarn` se não estiver usando `pnpm`.
+- Node.js 18+
+- PostgreSQL
+- App Twitch registrado
+- Bot Discord criado e adicionado ao servidor
+- URL pública para o callback `/auth/twitch/callback` e webhook EventSub
 
 ---
 
-## Estrutura principal
+## 🧩 Tecnologias
 
-- `src/index.ts`: ponto de entrada; faz o `bootstrap` do Discord (`@constatic/base`) e carrega o módulo da Twitch.
-- `src/services/discord.ts`: gerenciamento do cliente do Discord + helpers para enviar mensagens/embeds.
-- `src/twitch/index.ts`: inicializa o cliente `tmi.js`, conecta ao chat e registra o listener de mensagens/comandos.
-- `src/twitch/events/listener.ts`: trata mensagens comuns do chat (por exemplo, repassa para o Discord).
-- `src/twitch/commands/`: comandos de chat da Twitch (ex.: `test`).
-- `src/services/twitchHelix.ts`: integração com a API Helix (whispers, resolução de usuários).
-- `src/services/twitchAuth.ts`: lógica de obtenção/refresh de token da Twitch.
-
----
-
-## Desenvolvimento
-
-```bash
-pnpm dev
-```
-
-Isso irá:
-- Carregar o `.env`.
-- Subir o bot de Discord.
-- Conectar o bot da Twitch ao canal configurado.
-
-Durante o desenvolvimento, use:
-- **`pnpm watch`** para recarregar automaticamente em mudanças.
-
----
-
-## Observações de segurança
-
-- Nunca faça commit do seu `.env` real (ele contém tokens e secrets).
-- Limite as permissões do bot da Twitch e do Discord apenas ao necessário.
-- Gere um novo `TWITCH_REFRESH_TOKEN`/`TWITCH_CLIENT_SECRET` se suspeitar que foram expostos.
-
-# Vulkan Sentinel
-
-Bot integrado **Discord + Twitch** com sistema de bridge de mensagens e vinculação de contas.
-
----
-
-## 📌 Funcionalidades
-
-- 🔁 Bridge de mensagens da Twitch → Discord  
-- 💬 Sistema modular de comandos para Twitch  
-- 🔐 Vinculação segura de conta Discord ↔ Twitch  
-- 🗄️ Persistência de dados com Prisma  
-- 🧱 Estrutura modular e escalável  
-
----
-
-## 🛠️ Tecnologias
-
-- Node.js  
-- TypeScript  
-- Prisma  
-- tmi.js  
-- discord.js  
-- Constatic  
+- Node.js
+- TypeScript
+- Prisma
+- discord.js
+- tmi.js
+- express
+- @constatic/base
+- zod
 
 ---
 
 ## ⚙️ Instalação
 
-### 1️⃣ Instalar dependências
+### 1. Instalar dependências
 
 ```bash
 npm install
 ```
 
-### 2️⃣ Criar arquivo `.env`
-
-```env
-BOT_TOKEN=
-GUILD_ID=
-INTEGRATION_LOGS_CHANNEL_ID=
-TWITCH_CHANNEL=
-TWITCH_USERNAME=
-TWITCH_CLIENT_ID=
-TWITCH_USER_TOKEN=
-TWITCH_BOT_ID=
-TWITCH_CLIENT_SECRET=
-TWITCH_REFRESH_TOKEN=
-TWITCH_REDIRECT_URI=
-
-DATABASE_URL=
-```
-
-### 3️⃣ Configurar o banco de dados
+### 2. Configurar banco de dados
 
 ```bash
 npx prisma generate
 npx prisma migrate dev
 ```
 
----
+### 3. Criar arquivo `.env`
 
-## ▶️ Executar
-
-### Desenvolvimento
-
-```bash
-npx tsx src/index.ts
-```
-
-### Produção
-
-```bash
-tsc
-node build/index.js
-```
+Crie um arquivo `.env` na raiz do projeto com as variáveis necessárias.
 
 ---
 
-## 🔐 Sistema de Link
+## ✅ Variáveis de ambiente
 
-Comando:
+Variáveis obrigatórias:
 
-```
-/link <twitchNick>
-```
+- `BOT_TOKEN` — Token do bot Discord
+- `GUILD_BOT_CHANNEL_ID` — Canal Discord para envios do bot
+- `DATABASE_URL` — URL do banco PostgreSQL
+- `TWITCH_CHANNEL` — Canal do streamer monitorado
+- `TWITCH_BROADCASTER_ID` — ID numérico do broadcaster Twitch
+- `TWITCH_USERNAME` — Nome de usuário do bot Twitch
+- `TWITCH_REDIRECT_URI` — Callback URL do OAuth Twitch
 
-Fluxo:
+Variáveis opcionais:
 
-1. Gera token único  
-2. Envia via sussurro na Twitch  
-3. Usuário confirma no Discord  
-4. Conta é vinculada permanentemente  
+- `TWITCH_CLIENT_ID` — Client ID do app Twitch
+- `TWITCH_CLIENT_SECRET` — Secret do app Twitch
+- `TWITCH_REFRESH_TOKEN` — Refresh token para renovar o access token Twitch
+- `TWITCH_USER_TOKEN` — Token fixo do bot Twitch (fallback)
+- `TWITCH_BOT_ID` — ID numérico do bot Twitch
+- `TWITCH_EVENTSUB_CALLBACK` — URL pública do webhook EventSub
+- `TWITCH_EVENTSUB_SECRET` — Segredo HMAC do EventSub
+- `INTEGRATION_LOGS_CHANNEL_ID` — Canal Discord para logs de mensagens Twitch
+- `GUILD_ID` — Guild principal (uso para verificar boosters)
 
-Regras:
+> Para renovar tokens automaticamente, use `TWITCH_REFRESH_TOKEN` com `TWITCH_CLIENT_ID` e `TWITCH_CLIENT_SECRET`. Caso contrário, o bot usa `TWITCH_USER_TOKEN` como fallback.
+
+---
+
+## ▶️ Scripts disponíveis
+
+- `npm run dev` — executa em desenvolvimento usando `tsx` e `.env`
+- `npm run dev:dev` — executa com `.env.dev`
+- `npm run watch` — watch mode com `.env`
+- `npm run watch:dev` — watch mode com `.env.dev`
+- `npm run build` — compila TypeScript
+- `npm run start` — executa a versão compilada
+- `npm run check` — valida o TypeScript
+
+---
+
+## 🧠 Arquitetura do projeto
+
+- `src/index.ts` — boot do Discord e inicialização geral
+- `src/twitch/index.ts` — cliente Twitch, bot, comandos e listeners
+- `src/server/server.ts` — servidor Express para OAuth Twitch e EventSub
+- `src/services/discord.ts` — helpers para envio de mensagens/embeds no Discord
+- `src/services/twitchAuth.ts` — token management e refresh da Twitch
+- `src/services/twitchHelix.ts` — chamadas à API Helix Twitch
+- `src/services/tickets.ts` — painel e fluxo de tickets Discord
+- `src/services/channelPoints.ts` — cálculo de pontos e bônus do usuário
+- `src/twitch/events/` — notificações de live, parceiros e tracker de viewership
+- `src/discord/commands/public/` — comandos públicos do Discord
+- `src/twitch/commands/` — comandos de chat Twitch
+
+---
+
+## 💬 Comandos disponíveis
+
+### Discord
+
+- `/ping` — resposta de teste com botão interativo
+- `/link` — gera link OAuth para vincular Twitch ao Discord
+- `/profile [user]` — mostra perfil com saldo, horas assistidas e bônus
+- `/live` — verifica se a live está online
+- `/transferir <admin>` — transfere o ticket atual para outro administrador
+
+### Twitch
+
+- `!discord` — envia convite/link do Discord no chat Twitch
+- `!test` — comando de teste que também publica embed no Discord
+
+---
+
+## 🔌 Fluxos e integrações
+
+- Twitch chat → Discord: mensagens do chat Twitch são enviadas para `INTEGRATION_LOGS_CHANNEL_ID`
+- EventSub: processado em `/webhook/twitch/eventsub`
+- OAuth Twitch: callback em `/auth/twitch/callback` vincula a conta
+- Viewer tracker: atualiza atividade de chat e recompensa pontos periodicamente
+- Ticket panel: botão em Discord cria ticket com modal e ações de aceitação/fechamento
+- Parceiros: o bot notifica quando canais parceiros entram em live
+
+---
+
+## 🗄️ Banco de dados
+
+O modelo principal `User` em `prisma/schema.prisma` contém:
+
+- `discordId`
+- `twitchId`
+- `isTwitchSub`
+- `isDiscordBooster`
+- `hoursWatched`
+- `balance`
+- `lastSeenInChat`
+
+---
+
+## 🔒 Segurança
+
+- Não versionar `.env` reais
+- Use permissões mínimas para bot Discord e app Twitch
+- Regenerar `TWITCH_CLIENT_SECRET`/`TWITCH_REFRESH_TOKEN` se expostos
+- Verifique se a callback Twitch está registrada corretamente no app Twitch
+
+---
+
+## 📌 Personalização rápida
+
+- Adicione comandos Twitch em `src/twitch/commands/`
+- Adapte comandos Discord em `src/discord/commands/public/`
+- Configure parceiros em `src/twitch/events/partnerNotifier.ts`
+- Personalize o painel de tickets em `src/services/tickets.ts`
+
+---
+
+## 💡 Observações finais
+
+Este projeto já suporta integrações multiplataforma e pode servir como base para:
+
+- sistema de fidelidade/recompensas
+- atendimento via tickets
+- notificações de live e parceiros
+- automações entre Discord e Twitch
+
 
 - Um Discord só pode ter uma Twitch vinculada  
 - Uma Twitch só pode estar vinculada a um Discord  

@@ -5,7 +5,8 @@ import { getTokenTimeLeft, getTwitchAccessToken } from "../services/twitchAuth.j
 import { getTwitchCommands } from "./base.js";
 
 import { handleTwitchMessage } from "./events/listener.js";
-import { processSubscription } from "./events/subTracker.js";
+import { startLiveNotifier } from "./events/liveNotifier.js";
+import { startPartnerNotifier } from "./events/partnerNotifier.js";
 import { processChatActivity, startWatchTracker } from "./events/viewertracker.js";
 
 // Twitch Commands
@@ -37,6 +38,8 @@ async function bootstrapTwitchClient() {
 
     // inicia o sistema de pontos/tempo de live
     startWatchTracker();
+    await startLiveNotifier();
+    await startPartnerNotifier();
 
     const timeLeft = getTokenTimeLeft();
     if (timeLeft > 0) {
@@ -56,10 +59,6 @@ async function bootstrapTwitchClient() {
 
             // registra atividade no tracker
             await processChatActivity(channel, tags);
-
-            // registra evento de subscription
-            await processSubscription(tags);
-
 
             // comandos do chat
             if (message.startsWith("!")) {
