@@ -22,8 +22,9 @@ export const appConfig = {
   },
   discord: {
     inviteUrl: "https://discord.gg/FcvVVZVWH9",
+    verifiedRoleId: "1492288881058517122",
     linkAccount: {
-      devMode: false,
+      devMode: false, // Display the link as text instead of a clickable button when the /link command is entered
     },
     statsChannels: {
       memberCountChannelId: "1460103249876222053",

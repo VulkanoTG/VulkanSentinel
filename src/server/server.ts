@@ -24,8 +24,6 @@ type TwitchUserResponse = {
   }[];
 };
 
-const VERIFIED_ROLE_ID = "1492288881058517122";
-
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -159,9 +157,9 @@ app.get("/auth/twitch/callback", async (req, res) => {
       },
     });
 
-    if (linkedMember && !linkedMember.roles.cache.has(VERIFIED_ROLE_ID)) {
+    if (linkedMember && !linkedMember.roles.cache.has(appConfig.discord.verifiedRoleId)) {
       try {
-        await linkedMember.roles.add(VERIFIED_ROLE_ID, "Conta Twitch vinculada");
+        await linkedMember.roles.add(appConfig.discord.verifiedRoleId, "Conta Twitch vinculada");
       } catch (error) {
         console.error("Erro ao adicionar cargo de verificado no callback:", error);
       }
