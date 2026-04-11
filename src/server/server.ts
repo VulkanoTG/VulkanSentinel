@@ -1,5 +1,6 @@
 import { prisma } from "#database";
-import { env } from "#env";
+import { appConfig, env } from "#config";
+import type { GuildMember } from "discord.js";
 import express from "express";
 import { getDiscordClient } from "../services/discord.js";
 import {
@@ -23,6 +24,8 @@ type TwitchUserResponse = {
   }[];
 };
 
+const VERIFIED_ROLE_ID = "1492288881058517122";
+
 function escapeHtml(value: string) {
   return value
     .replaceAll("&", "&amp;")
@@ -31,7 +34,6 @@ function escapeHtml(value: string) {
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
 }
-
 
 const app = express();
 
@@ -52,12 +54,12 @@ app.post("/webhook/twitch/eventsub", async (req, res) => {
   const messageType = parseEventSubMessageType(req.headers);
 
   if (!messageType) {
-    return res.status(400).send("Tipo de mensagem EventSub inválido.");
+    return res.status(400).send("Tipo de mensagem EventSub invalido.");
   }
 
   const isValid = verifyEventSubSignature(req.headers, rawBody);
   if (!isValid) {
-    return res.status(403).send("Assinatura EventSub inválida.");
+    return res.status(403).send("Assinatura EventSub invalida.");
   }
 
   const body = req.body as { challenge?: string };
@@ -87,22 +89,21 @@ app.post("/webhook/twitch/eventsub", async (req, res) => {
 app.get("/auth/twitch/callback", async (req, res) => {
   const { code, state } = req.query;
   if (!code || !state) {
-    return res.status(400).send("Código ou state ausente.");
+    return res.status(400).send("Codigo ou state ausente.");
   }
 
   try {
-    //Trocar code por access_token
     const tokenResponse = await fetch("https://id.twitch.tv/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams({
-        client_id: process.env.TWITCH_CLIENT_ID!,
-        client_secret: process.env.TWITCH_CLIENT_SECRET!,
+        client_id: env.TWITCH_CLIENT_ID!,
+        client_secret: env.TWITCH_CLIENT_SECRET!,
         code: code as string,
         grant_type: "authorization_code",
-        redirect_uri: process.env.TWITCH_REDIRECT_URI!,
+        redirect_uri: env.TWITCH_REDIRECT_URI,
       }),
     });
 
@@ -115,36 +116,35 @@ app.get("/auth/twitch/callback", async (req, res) => {
 
     const accessToken = tokenData.access_token;
 
-    //Buscar usuário na Twitch
     const userResponse = await fetch("https://api.twitch.tv/helix/users", {
       headers: {
         Authorization: `Bearer ${accessToken}`,
-        "Client-Id": process.env.TWITCH_CLIENT_ID!,
+        "Client-Id": env.TWITCH_CLIENT_ID!,
       },
     });
 
-   const userData = (await userResponse.json()) as TwitchUserResponse;
+    const userData = (await userResponse.json()) as TwitchUserResponse;
     const twitchUser = userData.data?.[0];
 
     if (!twitchUser) {
-      return res.status(400).send("Usuário da Twitch não encontrado.");
+      return res.status(400).send("Usuario da Twitch nao encontrado.");
     }
 
     const twitchId = twitchUser.id;
     const discordId = state as string;
     let isDiscordBooster = false;
+    let linkedMember: GuildMember | null = null;
 
     if (env.GUILD_ID) {
       try {
         const guild = await getDiscordClient().guilds.fetch(env.GUILD_ID);
-        const member = await guild.members.fetch(discordId);
-        isDiscordBooster = member.premiumSince !== null;
+        linkedMember = await guild.members.fetch(discordId);
+        isDiscordBooster = linkedMember.premiumSince !== null;
       } catch (error) {
         console.error("Erro ao verificar status de booster no callback:", error);
       }
     }
 
-    //Salvar no banco
     await prisma.user.upsert({
       where: { discordId },
       update: {
@@ -159,7 +159,15 @@ app.get("/auth/twitch/callback", async (req, res) => {
       },
     });
 
-    const safeDisplayName = escapeHtml(twitchUser.display_name || twitchUser.login || "usuário");
+    if (linkedMember && !linkedMember.roles.cache.has(VERIFIED_ROLE_ID)) {
+      try {
+        await linkedMember.roles.add(VERIFIED_ROLE_ID, "Conta Twitch vinculada");
+      } catch (error) {
+        console.error("Erro ao adicionar cargo de verificado no callback:", error);
+      }
+    }
+
+    const safeDisplayName = escapeHtml(twitchUser.display_name || twitchUser.login || "usuario");
 
     const successHtml = `<!doctype html>
 <html lang="pt-BR">
@@ -245,24 +253,26 @@ app.get("/auth/twitch/callback", async (req, res) => {
 </head>
 <body>
   <main class="card">
-    <span class="badge"><span class="dot"></span>Integração concluída</span>
-    <h1>Conta vinculada com sucesso 🎉</h1>
+    <span class="badge"><span class="dot"></span>Integracao concluida</span>
+    <h1>Conta vinculada com sucesso</h1>
     <p>A conta da Twitch <strong>${safeDisplayName}</strong> foi conectada ao seu Discord.</p>
-    <p class="footer">Você já pode fechar esta aba e voltar ao Discord.</p>
+    <p class="footer">Voce ja pode fechar esta aba e voltar ao Discord.</p>
   </main>
 </body>
 </html>`;
 
     return res.status(200).type("text/html").send(successHtml);
-
   } catch (error) {
     console.error("Erro no callback:", error);
     return res.status(500).send("Erro interno do servidor.");
   }
 });
 
-app.listen(3000, () => {
-  console.log("HTTP Server rodando na porta 3000");
+const port = Number(process.env.PORT) || appConfig.server.port;
+const host = process.env.HOST || "0.0.0.0";
+
+export const httpServer = app.listen(port, host, () => {
+  console.log(`HTTP Server rodando em ${host}:${port}`);
 
   ensureEventSubSubscriptions().catch((error) => {
     console.error("[EventSub] Falha ao garantir subscriptions:", error);

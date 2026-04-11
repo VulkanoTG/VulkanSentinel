@@ -1,52 +1,52 @@
 import { createCommand } from "#base";
+import { appConfig, env } from "#config";
 import {
-    ApplicationCommandType,
-    EmbedBuilder,
-    PermissionFlagsBits
+  ApplicationCommandType,
+  EmbedBuilder,
+  PermissionFlagsBits,
 } from "discord.js";
-
-import { isStreamOnline } from "#helix";
+import { getLiveStatusSnapshot } from "../../../services/liveStatus.js";
 
 createCommand({
   name: "live",
-  description: "Verifica se a live está online",
+  description: "Verifica se a live esta online",
   type: ApplicationCommandType.ChatInput,
-
-  // 🔒 Apenas moderadores (pode trocar a permissão se quiser)
   defaultMemberPermissions: PermissionFlagsBits.ManageMessages,
 
   async run(interaction) {
-
     await interaction.deferReply({ ephemeral: true });
 
     try {
-      const online = await isStreamOnline();
+      const { initialized, isLive } = getLiveStatusSnapshot();
 
       const embed = new EmbedBuilder()
         .setTitle("Status da Live")
         .setTimestamp();
 
-      if (online) {
+      if (!initialized) {
         embed
-          .setColor(0x9146FF) // Roxo Twitch
-          .setDescription("🔴 A live está **ONLINE** agora!")
-          .setURL(`https://twitch.tv/${process.env.TWITCH_CHANNEL}`);
+          .setColor(appConfig.twitch.liveNotifier.offlineColor)
+          .setDescription("O status da live ainda esta sendo carregado.");
+      } else if (isLive) {
+        embed
+          .setColor(appConfig.twitch.liveNotifier.embedColor)
+          .setDescription("A live esta ONLINE agora!")
+          .setURL(`https://twitch.tv/${env.TWITCH_CHANNEL}`);
       } else {
         embed
-          .setColor(0x2F3136)
-          .setDescription("⚫ A live está **offline** no momento.");
+          .setColor(appConfig.twitch.liveNotifier.offlineColor)
+          .setDescription("A live esta offline no momento.");
       }
 
       await interaction.editReply({
         embeds: [embed],
       });
-
     } catch (error) {
       console.error(error);
 
       await interaction.editReply({
-        content: "⚠️ Erro ao verificar status da live."
+        content: "Erro ao verificar status da live.",
       });
     }
-  }
+  },
 });

@@ -1,20 +1,14 @@
+import { appConfig } from "#config";
 import { EmbedBuilder } from "discord.js";
 import { sendEmbedToChannel } from "../../services/discord.js";
 import { getCurrentStreamByUserId, getUserId } from "../../services/twitchHelix.js";
-
-const PARTNER_ALERT_CHANNEL_ID = "1442335000966987867";
-const PARTNER_CHECK_INTERVAL_MS = 60_000;
 
 type PartnerConfig = {
   login: string;
   label?: string;
 };
 
-const PARTNERS: PartnerConfig[] = [
-  // Exemplo:
-  // { login: "nome_do_parceiro", label: "Nome do Parceiro" },
-   { login: "satooro", label: "satooro" },
-];
+const PARTNERS: PartnerConfig[] = [...appConfig.twitch.partnerNotifier.partners];
 
 const partnerLiveState = new Map<string, boolean>();
 
@@ -29,7 +23,7 @@ function buildPartnerLiveEmbed(
     .replace("{height}", "720");
 
   return new EmbedBuilder()
-    .setColor(0xff8a3d)
+    .setColor(appConfig.twitch.partnerNotifier.embedColor)
     .setTitle(`${channelName} entrou em live!`)
     .setURL(streamUrl)
     .setDescription(`**${stream.title}**`)
@@ -55,7 +49,7 @@ async function checkPartnerLive(partner: PartnerConfig) {
 
   if (isLive && !wasLive && stream) {
     await sendEmbedToChannel(
-      PARTNER_ALERT_CHANNEL_ID,
+      appConfig.twitch.partnerNotifier.alertChannelId,
       buildPartnerLiveEmbed(partner, stream)
     );
     console.log(`[Partners] Aviso de live enviado para ${partner.login}.`);
@@ -74,7 +68,17 @@ async function initializePartnerStates() {
       }
 
       const stream = await getCurrentStreamByUserId(partnerId);
-      partnerLiveState.set(partner.login, stream !== null);
+      const isLive = stream !== null;
+
+      if (isLive && stream) {
+        await sendEmbedToChannel(
+          appConfig.twitch.partnerNotifier.alertChannelId,
+          buildPartnerLiveEmbed(partner, stream)
+        );
+        console.log(`[Partners] ${partner.login} ja estava em live no startup. Aviso enviado.`);
+      }
+
+      partnerLiveState.set(partner.login, isLive);
     } catch (error) {
       console.error(`[Partners] Erro ao inicializar ${partner.login}:`, error);
       partnerLiveState.set(partner.login, false);
@@ -96,5 +100,5 @@ export async function startPartnerNotifier() {
         console.error(`[Partners] Erro ao verificar ${partner.login}:`, error);
       });
     }
-  }, PARTNER_CHECK_INTERVAL_MS);
+  }, appConfig.twitch.partnerNotifier.checkIntervalMs);
 }

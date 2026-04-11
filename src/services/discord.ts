@@ -6,6 +6,10 @@ export function setDiscordClient(client: Client<boolean>) {
 	discordClient = client;
 }
 
+export function hasDiscordClient() {
+	return Boolean(discordClient);
+}
+
 export function getDiscordClient() {
 	if (!discordClient) {
 		throw new Error("Discord client not initialized. Make sure it's set before using it.");

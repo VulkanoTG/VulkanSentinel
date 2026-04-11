@@ -1,11 +1,7 @@
+import { appConfig } from "#config";
 import { prisma } from "#database";
 
-const POINTS = 30;
-const BASE_MULTIPLY = 1;
-const SUB_MULTIPLY = 1.5;
-const BOOSTER_MULTIPLY = 1.25;
-const EVENT_MULTIPLY = 1;
-const EVENT_MULTIPLIER_ACTIVE = false;
+const channelPointsConfig = appConfig.twitch.channelPoints;
 
 type ChannelPointsInput = {
   userId: number;
@@ -24,23 +20,23 @@ export function getChannelPointBreakdown({
   const multipliers = [
     {
       label: "Base",
-      value: BASE_MULTIPLY,
+      value: channelPointsConfig.baseMultiply,
       active: true,
     },
     {
       label: "Sub Twitch",
-      value: SUB_MULTIPLY,
+      value: channelPointsConfig.subMultiply,
       active: isTwitchSub,
     },
     {
       label: "Booster Discord",
-      value: BOOSTER_MULTIPLY,
+      value: channelPointsConfig.boosterMultiply,
       active: isDiscordBooster,
     },
     {
       label: "Evento",
-      value: EVENT_MULTIPLY,
-      active: EVENT_MULTIPLIER_ACTIVE && EVENT_MULTIPLY > 1,
+      value: channelPointsConfig.eventMultiply,
+      active: channelPointsConfig.eventMultiplierActive && channelPointsConfig.eventMultiply > 1,
     },
   ];
 
@@ -50,7 +46,7 @@ export function getChannelPointBreakdown({
   }, 1);
 
   return {
-    basePoints: POINTS,
+    basePoints: channelPointsConfig.points,
     totalMultiplier,
     activeBonuses: activeMultipliers,
   };
@@ -75,7 +71,7 @@ export async function calculateChannelPoints({
     });
 
     return {
-      points: Math.floor(POINTS * breakdown.totalMultiplier),
+      points: Math.floor(channelPointsConfig.points * breakdown.totalMultiplier),
       hours: baseHours,
       multiplier: breakdown.totalMultiplier,
       activeBonuses: breakdown.activeBonuses,
@@ -88,7 +84,7 @@ export async function calculateChannelPoints({
   });
 
   return {
-    points: Math.floor(POINTS * breakdown.totalMultiplier),
+    points: Math.floor(channelPointsConfig.points * breakdown.totalMultiplier),
     hours: baseHours,
     multiplier: breakdown.totalMultiplier,
     activeBonuses: breakdown.activeBonuses,

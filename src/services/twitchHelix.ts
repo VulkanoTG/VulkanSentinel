@@ -1,4 +1,4 @@
-import { env } from "#env";
+import { env } from "#config";
 import { getTwitchAccessToken } from "./twitchAuth.js";
 // Types 
 type TwitchUser = {
@@ -12,7 +12,7 @@ type TwitchUsersResponse = {
   data: TwitchUser[];
 };
 
-type TwitchStream = {
+export type TwitchStream = {
   id: string;
   user_id: string;
   user_name: string;
@@ -29,6 +29,16 @@ type TwitchStream = {
 
 type TwitchStreamsResponse = {
   data: TwitchStream[];
+};
+
+type TwitchChannelFollowersResponse = {
+  total: number;
+  data: Array<{
+    user_id: string;
+    user_login: string;
+    user_name: string;
+    followed_at: string;
+  }>;
 };
 
 
@@ -235,5 +245,35 @@ export async function getCurrentStreamByUserId(userId: string) {
   const data = (await res.json()) as TwitchStreamsResponse;
 
   return data.data[0] ?? null;
+}
+
+export async function getChannelFollowersCount() {
+  const clientId = env.TWITCH_CLIENT_ID;
+  const userToken = await getTwitchAccessToken();
+  const broadcasterId = env.TWITCH_BROADCASTER_ID;
+  const moderatorId = env.TWITCH_BOT_ID;
+
+  if (!clientId || !userToken || !broadcasterId || !moderatorId) {
+    throw new Error("Missing Twitch environment variables for follower count");
+  }
+
+  const res = await fetch(
+    `https://api.twitch.tv/helix/channels/followers?broadcaster_id=${encodeURIComponent(broadcasterId)}&moderator_id=${encodeURIComponent(moderatorId)}&first=1`,
+    {
+      method: "GET",
+      headers: {
+        "Client-ID": clientId,
+        Authorization: `Bearer ${userToken}`,
+      },
+    }
+  );
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`Erro Twitch followers API: ${errorText}`);
+  }
+
+  const data = (await res.json()) as TwitchChannelFollowersResponse;
+  return data.total ?? 0;
 }
 

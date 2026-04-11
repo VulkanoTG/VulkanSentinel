@@ -1,4 +1,5 @@
 import { createCommand } from "#base";
+import { appConfig } from "#config";
 import { prisma } from "#database";
 import { getTwitchUserById } from "#helix";
 import {
@@ -10,7 +11,13 @@ import {
 } from "discord.js";
 import { getChannelPointBreakdown } from "../../../services/channelPoints.js";
 
-const FIRE_COINS_EMOJI = "<:FireCoins:1491666484039254056>";
+function formatWatchedHours(hoursWatched: number | null | undefined) {
+  const totalMinutes = Math.max(0, Math.round((hoursWatched ?? 0) * 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  return `${hours}:${minutes.toString().padStart(2, "0")}`;
+}
 
 async function findUserByProfileInput(
   interaction: ChatInputCommandInteraction,
@@ -122,7 +129,7 @@ createCommand({
       .join("\n") || "Nenhum bonus ativo";
 
     const embed = new EmbedBuilder()
-      .setColor(0xff7a18)
+      .setColor(appConfig.discord.tickets.embedColor)
       .setTitle(`Perfil de ${profileName}`)
       .setDescription(
         guildMember
@@ -134,8 +141,8 @@ createCommand({
         { name: "Discord", value: `<@${user.discordId}>`, inline: true },
         { name: "Twitch", value: twitchDisplayName, inline: true },
         { name: "Twitch ID", value: user.twitchId ?? "Nao vinculado", inline: false },
-        { name: "Moedas", value: `${FIRE_COINS_EMOJI} ${user.balance ?? 0}`, inline: true},
-        { name: "Horas Assistidas", value: `${user.hoursWatched ?? 0}h`, inline: true },
+        { name: "Firecoins", value: `${appConfig.discord.profile.fireCoinsEmoji} ${user.balance ?? 0}`, inline: true },
+        { name: "Horas Assistidas", value: `${formatWatchedHours(user.hoursWatched)}h`, inline: true },
         { name: "Bonus Ativos", value: activeBonusText, inline: false }
       )
       .setFooter({ text: `ID interno: ${user.id} • Vulkan Sentinel` })

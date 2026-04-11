@@ -1,9 +1,13 @@
-import { env } from "#env";
+import { env } from "#config";
 
 // Token cache em memória para evitar pedir refresh toda hora
 let cachedAccessToken: string | null = env.TWITCH_USER_TOKEN ?? null;
 let tokenExpiresAt: number | null = null;
 let refreshTimeout: NodeJS.Timeout | null = null;
+
+// Cache separado para app access token, usado apenas no EventSub.
+let cachedAppAccessToken: string | null = null;
+let appTokenExpiresAt: number | null = null;
 
 export function getCachedTwitchAccessToken() {
 	return cachedAccessToken;
@@ -15,7 +19,6 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 		return cachedAccessToken;
 	}
 
-
 	const clientId = env.TWITCH_CLIENT_ID;
 	const clientSecret = env.TWITCH_CLIENT_SECRET;
 	const refreshToken = env.TWITCH_REFRESH_TOKEN;
@@ -24,7 +27,6 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 		console.warn("[TwitchAuth] Client ID/secret ou refresh token não configurados. Usando TWITCH_USER_TOKEN fixo.");
 		return env.TWITCH_USER_TOKEN ?? null;
 	}
-
 
 	// Faz refresh do token de usuário
 	const params = new URLSearchParams({
@@ -60,6 +62,7 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 		return env.TWITCH_USER_TOKEN ?? null;
 	}
 	cachedAccessToken = data.access_token;
+
 	// Armazena o timestamp de expiração
 	if (data.expires_in) {
 		tokenExpiresAt = Date.now() + data.expires_in * 1000;
@@ -85,7 +88,56 @@ export async function getTwitchAccessToken(): Promise<string | null> {
 	return cachedAccessToken;
 }
 
+export async function getTwitchAppAccessToken(): Promise<string | null> {
+	const clientId = env.TWITCH_CLIENT_ID;
+	const clientSecret = env.TWITCH_CLIENT_SECRET;
+
+	if (!clientId || !clientSecret) {
+		console.warn("[TwitchAuth] TWITCH_CLIENT_ID ou TWITCH_CLIENT_SECRET não configurados para app access token.");
+		return null;
+	}
+
+	if (cachedAppAccessToken && appTokenExpiresAt && Date.now() < appTokenExpiresAt - 60_000) {
+		return cachedAppAccessToken;
+	}
+
+	const params = new URLSearchParams({
+		client_id: clientId,
+		client_secret: clientSecret,
+		grant_type: "client_credentials",
+	});
+
+	const res = await fetch("https://id.twitch.tv/oauth2/token", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/x-www-form-urlencoded",
+		},
+		body: params.toString(),
+	});
+
+	if (!res.ok) {
+		const body = await res.text();
+		console.error(`[TwitchAuth] Falha ao obter app access token da Twitch: ${res.status} ${body}`);
+		return null;
+	}
+
+	const data = await res.json() as {
+		access_token?: string;
+		expires_in?: number;
+		token_type?: string;
+	};
+
+	if (!data.access_token) {
+		console.error("[TwitchAuth] Resposta do app access token não contém access_token");
+		return null;
+	}
+
+	cachedAppAccessToken = data.access_token;
+	appTokenExpiresAt = data.expires_in ? Date.now() + data.expires_in * 1000 : Date.now() + 60 * 60 * 1000;
+
+	return cachedAppAccessToken;
+}
+
 export function getTokenTimeLeft() {
 	return tokenExpiresAt ? tokenExpiresAt - Date.now() : 0;
 }
-

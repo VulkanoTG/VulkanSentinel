@@ -1,21 +1,21 @@
-import { env } from "#env";
+import { appConfig, env } from "#config";
 import { EmbedBuilder } from "discord.js";
 import { sendEmbedToChannel } from "../../services/discord.js";
-import { getCurrentStream } from "../../services/twitchHelix.js";
+import {
+  getLiveStatusSnapshot,
+  onLiveStatusChange,
+  type LiveStatusSnapshot,
+} from "../../services/liveStatus.js";
+import { type TwitchStream } from "../../services/twitchHelix.js";
 
-const LIVE_ALERT_CHANNEL_ID = "1442332409906331809";
-const LIVE_CHECK_INTERVAL_MS = 60_000;
-
-let wasLive = false;
-
-function buildLiveEmbed(stream: NonNullable<Awaited<ReturnType<typeof getCurrentStream>>>) {
+function buildLiveEmbed(stream: TwitchStream) {
   const streamUrl = `https://twitch.tv/${env.TWITCH_CHANNEL}`;
   const thumbnail = stream.thumbnail_url
     .replace("{width}", "1280")
     .replace("{height}", "720");
 
   return new EmbedBuilder()
-    .setColor(0x9146ff)
+    .setColor(appConfig.twitch.liveNotifier.embedColor)
     .setTitle(`${stream.user_name} esta ao vivo!`)
     .setURL(streamUrl)
     .setDescription(`**${stream.title}**`)
@@ -28,31 +28,30 @@ function buildLiveEmbed(stream: NonNullable<Awaited<ReturnType<typeof getCurrent
     .setTimestamp(new Date(stream.started_at));
 }
 
-async function checkLiveStatus() {
-  try {
-    const stream = await getCurrentStream();
-    const isLive = stream !== null;
-
-    if (isLive && !wasLive && stream) {
-      await sendEmbedToChannel(LIVE_ALERT_CHANNEL_ID, buildLiveEmbed(stream));
-      console.log("[Twitch] Aviso de live enviado para o Discord.");
-    }
-
-    wasLive = isLive;
-  } catch (error) {
-    console.error("[Twitch] Erro ao verificar inicio de live:", error);
+async function handleLiveTransition(
+  next: LiveStatusSnapshot,
+  previous: LiveStatusSnapshot
+) {
+  if (!next.isLive || previous.isLive || !next.stream) {
+    return;
   }
+
+  await sendEmbedToChannel(
+    appConfig.twitch.liveNotifier.alertChannelId,
+    buildLiveEmbed(next.stream)
+  );
+  console.log("[Twitch] Aviso de live enviado para o Discord.");
 }
 
 export async function startLiveNotifier() {
-  const currentStream = await getCurrentStream().catch((error) => {
-    console.error("[Twitch] Erro ao inicializar live notifier:", error);
-    return null;
+  const initial = getLiveStatusSnapshot();
+  if (!initial.initialized) {
+    console.warn("[Twitch] Live notifier iniciou antes do estado de live ser carregado.");
+  }
+
+  onLiveStatusChange((next, previous) => {
+    void handleLiveTransition(next, previous).catch((error) => {
+      console.error("[Twitch] Erro ao processar transicao de live:", error);
+    });
   });
-
-  wasLive = currentStream !== null;
-
-  setInterval(() => {
-    void checkLiveStatus();
-  }, LIVE_CHECK_INTERVAL_MS);
 }

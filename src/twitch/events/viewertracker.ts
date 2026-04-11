@@ -1,54 +1,40 @@
+import { appConfig } from "#config";
 import { prisma } from "#database";
-import { isStreamOnline } from "#helix";
 import { calculateChannelPoints } from "../../services/channelPoints.js";
+import { isStreamLiveCached, onLiveStatusChange } from "../../services/liveStatus.js";
 import { getTwitchClient } from "../../services/twitch.js";
 
-/* CONFIG */
-
-const WATCH_INTERVAL_MINUTES = 10;
-const ACTIVE_WINDOW_MINUTES = 15;
-const WARNING_COOLDOWN_MINUTES = 30;
-
-const IGNORE_USERS = [
-  "nightbot",
-  "streamelements",
-  "moobot"
-];
-
+const viewerTrackerConfig = appConfig.twitch.viewerTracker;
 const warningCooldown = new Map<string, number>();
+let lastTrackerPauseState: boolean | null = null;
 
-
-// Verifica atividade no chat e atualiza o timestamp do último visto
 export async function processChatActivity(channel: string, tags: any) {
-
   const client = getTwitchClient();
-
   const twitchId = tags["user-id"];
   const username = tags.username?.toLowerCase();
-
-//   console.log("📩 Tracker recebeu:", username);
+  const message = tags["message-text"] as string | undefined;
 
   if (!twitchId || !username) return;
 
-  if (IGNORE_USERS.includes(username)) {
-    // console.log("⏭ Ignorado:", username);
+  if (viewerTrackerConfig.ignoreUsers.includes(username)) {
     return;
   }
 
   const user = await prisma.user.findUnique({
-    where: { twitchId }
+    where: { twitchId },
   });
 
   if (!user) {
-
-    // console.log("⚠ Usuário não vinculado:", username);
+    if (message?.startsWith("!")) {
+      return;
+    }
 
     const lastWarning = warningCooldown.get(username);
     const now = Date.now();
 
     if (
       lastWarning &&
-      now - lastWarning < WARNING_COOLDOWN_MINUTES * 60 * 1000
+      now - lastWarning < viewerTrackerConfig.warningCooldownMinutes * 60 * 1000
     ) {
       return;
     }
@@ -57,7 +43,7 @@ export async function processChatActivity(channel: string, tags: any) {
 
     await client.say(
       channel,
-      `Para ganhar pontos da live conecte sua conta no Discord usando /discord e siga as instruções para vincular sua Twitch!`
+      "Para ganhar firecoins da live conecte sua conta usando /link em nosso servidor do Discorde siga as instruções para vincular sua Twitch!"
     );
 
     return;
@@ -66,68 +52,82 @@ export async function processChatActivity(channel: string, tags: any) {
   await prisma.user.update({
     where: { id: user.id },
     data: {
-      lastSeenInChat: new Date()
-    }
+      lastSeenInChat: new Date(),
+    },
   });
-
 }
 
-// Tracker de Timer
 export function startWatchTracker() {
-
   console.log("Viewer tracker iniciado");
 
+  onLiveStatusChange((next, previous) => {
+    if (!previous.initialized) {
+      lastTrackerPauseState = !next.isLive;
+      console.log(
+        next.isLive ? "Stream online, tracker ativo" : "Stream offline, tracker pausado"
+      );
+      return;
+    }
+
+    if (next.isLive === previous.isLive) {
+      return;
+    }
+
+    lastTrackerPauseState = !next.isLive;
+    console.log(
+      next.isLive ? "Stream online, tracker ativo" : "Stream offline, tracker pausado"
+    );
+  });
+
   setInterval(async () => {
-
     try {
+      const live = isStreamLiveCached();
 
-        const live = await isStreamOnline();
-
-        if (!live) {
-            console.log("⏸ Stream offline, tracker pausado");
-            return;
+      if (!live) {
+        if (lastTrackerPauseState !== true) {
+          lastTrackerPauseState = true;
+          console.log("Stream offline, tracker pausado");
         }
+        return;
+      }
 
+      if (lastTrackerPauseState !== false) {
+        lastTrackerPauseState = false;
+        console.log("Stream online, tracker ativo");
+      }
 
       const activeSince = new Date(
-        Date.now() - ACTIVE_WINDOW_MINUTES * 60 * 1000
+        Date.now() - viewerTrackerConfig.activeWindowMinutes * 60 * 1000
       );
 
       const activeUsers = await prisma.user.findMany({
         where: {
           twitchId: { not: null },
           lastSeenInChat: {
-            gte: activeSince
-          }
+            gte: activeSince,
+          },
         },
-        select: { id: true }
+        select: { id: true },
       });
-
-      // console.log("👥 Usuários ativos:", activeUsers.length);
 
       if (activeUsers.length === 0) return;
 
       for (const activeUser of activeUsers) {
         const reward = await calculateChannelPoints({
           userId: activeUser.id,
-          baseHours: WATCH_INTERVAL_MINUTES / 60,
+          baseHours: viewerTrackerConfig.watchIntervalMinutes / 60,
         });
 
         await prisma.user.update({
           where: { id: activeUser.id },
           data: {
             balance: { increment: reward.points },
-            hoursWatched: { increment: reward.hours }
-          }
+            hoursWatched: { increment: reward.hours },
+          },
         });
       }
-
-    } catch (err) {
-
-    //   console.error("🔥 Tracker error:", err);
-
+    } catch {
+      // Mantem o tracker vivo mesmo em caso de falha pontual.
     }
-
-  }, WATCH_INTERVAL_MINUTES * 60 * 1000);
-
+  }, viewerTrackerConfig.watchIntervalMinutes * 60 * 1000);
 }

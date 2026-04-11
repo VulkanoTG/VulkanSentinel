@@ -1,10 +1,8 @@
-import { env } from "#env";
-import { EmbedBuilder } from "discord.js";
+import { env } from "#config";
 import crypto from "node:crypto";
 import { syncSubscriptionStatus } from "../twitch/events/subTracker.js";
-import { sendEmbedToChannel } from "./discord.js";
-import { getCurrentStream } from "./twitchHelix.js";
-import { getTwitchAccessToken } from "./twitchAuth.js";
+import { markStreamOffline, refreshLiveStatus } from "./liveStatus.js";
+import { getTwitchAppAccessToken } from "./twitchAuth.js";
 
 type EventSubTransport = {
     method: "webhook";
@@ -39,14 +37,13 @@ type EventSubPayload = {
 };
 
 const EVENTSUB_TYPES = [
-    "channel.online",
+    "stream.online",
+    "stream.offline",
     "channel.subscribe",
     "channel.subscription.message",
     "channel.subscription.gift",
     "channel.subscription.end",
 ] as const;
-
-const LIVE_ALERT_CHANNEL_ID = "1442332409906331809";
 
 function getEventSubConfig() {
     return {
@@ -57,13 +54,28 @@ function getEventSubConfig() {
     };
 }
 
+function isValidWebhookCallback(callback: string) {
+    try {
+        const url = new URL(callback);
+        const isHttps = url.protocol === "https:";
+        const hasStandardPort = url.port === "" || url.port === "443";
+        const isLocalhost = ["localhost", "127.0.0.1", "::1"].includes(url.hostname);
+        return isHttps && hasStandardPort && !isLocalhost;
+    } catch {
+        return false;
+    }
+}
+
 function buildSignature(messageId: string, timestamp: string, rawBody: string, secret: string) {
     const hmac = crypto.createHmac("sha256", secret);
     hmac.update(messageId + timestamp + rawBody);
     return `sha256=${hmac.digest("hex")}`;
 }
 
-export function verifyEventSubSignature(headers: Record<string, string | string[] | undefined>, rawBody: string) {
+export function verifyEventSubSignature(
+    headers: Record<string, string | string[] | undefined>,
+    rawBody: string
+) {
     const { secret } = getEventSubConfig();
 
     if (!secret || !rawBody) return false;
@@ -111,8 +123,13 @@ export async function handleEventSubNotification(payload: EventSubPayload) {
 
     if (!EVENTSUB_TYPES.includes(type as (typeof EVENTSUB_TYPES)[number])) return;
 
-    if (type === "channel.online") {
-        await notifyDiscordOnLiveStart(event);
+    if (type === "stream.online") {
+        await refreshLiveStatus("eventsub:stream.online");
+        return;
+    }
+
+    if (type === "stream.offline") {
+        markStreamOffline("eventsub:stream.offline");
         return;
     }
 
@@ -141,48 +158,12 @@ export async function handleEventSubNotification(payload: EventSubPayload) {
     });
 }
 
-async function notifyDiscordOnLiveStart(event: Record<string, string | boolean | number | null | undefined>) {
-    const broadcasterName =
-        (typeof event.broadcaster_user_name === "string" && event.broadcaster_user_name) ||
-        env.TWITCH_CHANNEL;
-
-    const stream = await getCurrentStream().catch((error) => {
-        console.error("[EventSub] Erro ao buscar detalhes da live:", error);
-        return null;
-    });
-
-    const streamUrl = `https://twitch.tv/${env.TWITCH_CHANNEL}`;
-    const title = stream?.title ?? "A live comecou agora";
-    const game = stream?.game_name ?? null;
-    const thumbnail = stream?.thumbnail_url
-        ?.replace("{width}", "1280")
-        .replace("{height}", "720");
-
-    const embed = new EmbedBuilder()
-        .setColor(0x9146ff)
-        .setTitle(`${broadcasterName} esta ao vivo!`)
-        .setURL(streamUrl)
-        .setDescription(`A live acabou de comecar na Twitch.\n\n**${title}**`)
-        .addFields(
-            { name: "Canal", value: `[twitch.tv/${env.TWITCH_CHANNEL}](${streamUrl})`, inline: true },
-            { name: "Status", value: "Ao vivo", inline: true },
-            { name: "Categoria", value: game ?? "Nao informada", inline: true }
-        )
-        .setTimestamp();
-
-    if (thumbnail) {
-        embed.setImage(thumbnail);
-    }
-
-    await sendEmbedToChannel(LIVE_ALERT_CHANNEL_ID, embed);
-}
-
 async function getExistingSubscriptions() {
-    const token = await getTwitchAccessToken();
+    const token = await getTwitchAppAccessToken();
     const { clientId } = getEventSubConfig();
 
     if (!token || !clientId) {
-        throw new Error("TWITCH_CLIENT_ID ou token da Twitch ausente para listar EventSub.");
+        throw new Error("TWITCH_CLIENT_ID ou app access token da Twitch ausente para listar EventSub.");
     }
 
     const response = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
@@ -202,11 +183,13 @@ async function getExistingSubscriptions() {
 }
 
 async function createSubscription(type: (typeof EVENTSUB_TYPES)[number]) {
-    const token = await getTwitchAccessToken();
+    const token = await getTwitchAppAccessToken();
     const { clientId, broadcasterId, callback, secret } = getEventSubConfig();
 
     if (!token || !clientId || !broadcasterId || !callback || !secret) {
-        throw new Error("Configuração EventSub incompleta (token/client/callback/secret/broadcaster). ");
+        throw new Error(
+            "Configuracao EventSub incompleta (token/client/callback/secret/broadcaster)."
+        );
     }
 
     const response = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
@@ -242,7 +225,16 @@ export async function ensureEventSubSubscriptions() {
     const { callback, secret, broadcasterId, clientId } = getEventSubConfig();
 
     if (!callback || !secret || !broadcasterId || !clientId) {
-        console.warn("[EventSub] Configuração incompleta. Pulando registro automático de subscriptions.");
+        console.warn(
+            "[EventSub] Configuracao incompleta. Pulando registro automatico de subscriptions."
+        );
+        return;
+    }
+
+    if (!isValidWebhookCallback(callback)) {
+        console.warn(
+            `[EventSub] Callback ${callback} nao e um webhook HTTPS publico valido. Pulando registro automatico em ambiente local.`
+        );
         return;
     }
 
@@ -260,11 +252,17 @@ export async function ensureEventSubSubscriptions() {
             continue;
         }
 
-        await createSubscription(type);
+        try {
+            await createSubscription(type);
+        } catch (error) {
+            console.error(`[EventSub] Nao foi possivel garantir ${type}:`, error);
+        }
     }
 }
 
-export function parseEventSubMessageType(headers: Record<string, string | string[] | undefined>) {
+export function parseEventSubMessageType(
+    headers: Record<string, string | string[] | undefined>
+) {
     const value = headers["twitch-eventsub-message-type"];
 
     if (

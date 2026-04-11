@@ -4,7 +4,7 @@
   "main": "build/index.js",
   "scripts": {
     "check": "tsc --noEmit && echo ✔ Ok",
-    "build": "tsc",
+    "build": "tsc && xcopy src\\generated build\\generated /E /I /Y",
     "dev": "tsx --env-file=.env ./src/index.ts",
     "dev:dev": "tsx --env-file=.env.dev ./src/index.ts",
     "watch": "tsx --watch --env-file=.env ./src/index.ts",
@@ -34,8 +34,8 @@
     "typescript": "5.9.3"
   },
   "imports": {
-    "#env": [
-      "./build/env.js"
+    "#config": [
+      "./build/config.js"
     ],
     "#base": [
       "./build/discord/index.js"
@@ -47,19 +47,10 @@
       "./build/database/index.js"
     ],
     "#server": [
-      "./build/server/index.js"
+      "./build/server/server.js"
     ],
-    "#menus": [
-      "./build/menus/index.js"
-    ],
-    "#tools": [
-      "./build/tools/index.js"
-    ],
-    "#lib/*": [
-      "./build/lib/*"
-    ],
-    "#shared/*": [
-      "./build/shared/*"
+    "#helix": [
+      "./build/services/twitchHelix.js"
     ]
   },
   "baseVersion": "1.5.5"

@@ -1,6 +1,6 @@
 import { createEvent } from "#base";
 import { prisma } from "#database";
-import { env } from "#env";
+import { env } from "#config";
 
 async function syncMemberBoosterStatus(discordId: string, isBooster: boolean) {
   await prisma.user.updateMany({

@@ -1,9 +1,11 @@
-import { env } from "#env";
+import { env } from "#config";
 import tmi from "tmi.js";
 import { setTwitchClient } from "../services/twitch.js";
 import { getTokenTimeLeft, getTwitchAccessToken } from "../services/twitchAuth.js";
+import { initializeLiveStatus } from "../services/liveStatus.js";
 import { getTwitchCommands } from "./base.js";
 
+import { handleAntiSpam } from "./events/antiSpam.js";
 import { handleTwitchMessage } from "./events/listener.js";
 import { startLiveNotifier } from "./events/liveNotifier.js";
 import { startPartnerNotifier } from "./events/partnerNotifier.js";
@@ -11,6 +13,7 @@ import { processChatActivity, startWatchTracker } from "./events/viewertracker.j
 
 // Twitch Commands
 import "./commands/discord.js";
+import "./commands/pontos.js";
 import "./commands/test.js";
 
 async function bootstrapTwitchClient() {
@@ -35,6 +38,7 @@ async function bootstrapTwitchClient() {
 
     await client.connect();
     setTwitchClient(client);
+    await initializeLiveStatus();
 
     // inicia o sistema de pontos/tempo de live
     startWatchTracker();
@@ -55,10 +59,18 @@ async function bootstrapTwitchClient() {
 
         try {
             // ponte Twitch → Discord
+            const wasBlocked = await handleAntiSpam(channel, tags, message);
+            if (wasBlocked) {
+                return;
+            }
+
             await handleTwitchMessage(tags, message);
 
             // registra atividade no tracker
-            await processChatActivity(channel, tags);
+            await processChatActivity(channel, {
+                ...tags,
+                "message-text": message,
+            });
 
             // comandos do chat
             if (message.startsWith("!")) {
