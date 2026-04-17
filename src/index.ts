@@ -1,3 +1,4 @@
+import "./shared/consoleLogger.js";
 import { httpServer } from "#server";
 import { env } from "#config";
 import { bootstrap } from "@constatic/base";

@@ -13,8 +13,13 @@ import { processChatActivity, startWatchTracker } from "./events/viewertracker.j
 
 // Twitch Commands
 import "./commands/discord.js";
-import "./commands/pontos.js";
 import "./commands/test.js";
+import "./commands/points/pontos.js";
+import "./commands/points/basemultiply.js";
+import "./commands/points/events.js";
+import "./commands/points/eventstart.js";
+import "./commands/points/eventstop.js";
+import "./commands/points/pay.js";
 
 async function bootstrapTwitchClient() {
     const accessToken = await getTwitchAccessToken() ?? env.TWITCH_USER_TOKEN;

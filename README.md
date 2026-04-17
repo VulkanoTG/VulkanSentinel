@@ -1,155 +1,238 @@
 # Vulkan Sentinel
 
-Vulkan Sentinel é um bot integrado de **Discord + Twitch** escrito em TypeScript. Ele unifica chat, comandos, tickets e dados de usuário entre as duas plataformas, com suporte a OAuth, EventSub, sistema de pontos e notificações.
+Vulkan Sentinel is a TypeScript bot that connects Discord and Twitch into a single operational layer. It handles account linking, Twitch chat automation, Discord moderation tooling, Firecoins point management, scheduled bonus events, ticket support flows, live notifications, and audit logging.
 
----
+## Overview
 
-## 📌 Funcionalidades principais
+The project is built around two runtime fronts:
 
-- ✅ Integração Discord + Twitch
-- ✅ Ponte de mensagens Twitch → Discord
-- ✅ Comandos de chat Twitch: `!discord`, `!test`
-- ✅ Slash commands Discord: `/ping`, `/link`, `/profile`, `/live`, `/transferir`
-- ✅ Vinculação de conta Discord ↔ Twitch via OAuth
-- ✅ Painel de tickets Discord com abertura, aceitação e transferência
-- ✅ Monitoramento de viewers ativos e recompensa de pontos
-- ✅ Notificações de live de parceiros
-- ✅ Suporte a Twitch EventSub via webhook
-- ✅ Persistência de dados com Prisma + PostgreSQL
+- Discord, powered by `discord.js`
+- Twitch chat, powered by `tmi.js`
 
----
+Both fronts share the same business services for user state, Firecoins, event scheduling, transfer validation, and persistence. Prisma is used for the data layer, while Express handles Twitch OAuth and EventSub webhooks.
 
-## 🚀 Requisitos
+## Core Capabilities
 
-- Node.js 18+
-- PostgreSQL
-- App Twitch registrado
-- Bot Discord criado e adicionado ao servidor
-- URL pública para o callback `/auth/twitch/callback` e webhook EventSub
+- Discord <-> Twitch account linking through Twitch OAuth
+- Twitch chat bridge into Discord
+- Firecoins points system with stackable multipliers
+- Scheduled points events synced with a Discord guild event
+- Firecoins transfers with audit logs
+- Discord ticket panel and ticket transfer flow
+- Viewer activity tracking and periodic points rewards
+- Main stream and partner live notifications
+- Discord rules publishing command
+- Twitch EventSub webhook support
 
----
+## Tech Stack
 
-## 🧩 Tecnologias
-
-- Node.js
 - TypeScript
-- Prisma
+- Node.js
 - discord.js
 - tmi.js
-- express
-- @constatic/base
+- Prisma
+- PostgreSQL
+- Express
 - zod
+- @constatic/base
 
----
+## Project Structure
 
-## ⚙️ Instalação
+```text
+src/
+  database/      Prisma client bootstrap
+  discord/       Discord commands, events, responders
+  server/        Express routes for OAuth and EventSub
+  services/      Shared business logic and integrations
+  shared/        Shared runtime utilities
+  twitch/        Twitch commands, events, client bootstrap
+```
 
-### 1. Instalar dependências
+Important files:
+
+- `src/index.ts`: main app bootstrap and graceful shutdown
+- `src/twitch/index.ts`: Twitch client bootstrap and chat command dispatch
+- `src/server/server.ts`: HTTP server, Twitch OAuth callback, EventSub endpoint
+- `src/services/channelPoints.ts`: Firecoins event state and multiplier engine
+- `src/services/channelPointsAdmin.ts`: admin-facing event and multiplier controls
+- `src/services/channelPointTransfers.ts`: shared transfer workflow and audit logging
+- `src/services/tickets.ts`: Discord tickets workflow
+
+## Environment Variables
+
+Required:
+
+- `BOT_TOKEN`
+- `DATABASE_URL`
+- `GUILD_BOT_CHANNEL_ID`
+- `TWITCH_CHANNEL`
+- `TWITCH_BROADCASTER_ID`
+- `TWITCH_USERNAME`
+- `TWITCH_REDIRECT_URI`
+
+Recommended:
+
+- `GUILD_ID`
+- `TWITCH_CLIENT_ID`
+- `TWITCH_CLIENT_SECRET`
+- `TWITCH_REFRESH_TOKEN`
+- `TWITCH_BOT_ID`
+- `TWITCH_EVENTSUB_CALLBACK`
+- `TWITCH_EVENTSUB_SECRET`
+- `INTEGRATION_LOGS_CHANNEL_ID`
+
+## Local Setup
+
+Install dependencies:
 
 ```bash
 npm install
 ```
 
-### 2. Configurar banco de dados
+Generate Prisma client and run migrations:
 
 ```bash
 npx prisma generate
 npx prisma migrate dev
 ```
 
-### 3. Criar arquivo `.env`
+Run in development:
 
-Crie um arquivo `.env` na raiz do projeto com as variáveis necessárias.
+```bash
+npm run dev
+```
 
----
+Type-check the project:
 
-## ✅ Variáveis de ambiente
+```bash
+npm run check
+```
 
-Variáveis obrigatórias:
+## Runtime Scripts
 
-- `BOT_TOKEN` — Token do bot Discord
-- `GUILD_BOT_CHANNEL_ID` — Canal Discord para envios do bot
-- `DATABASE_URL` — URL do banco PostgreSQL
-- `TWITCH_CHANNEL` — Canal do streamer monitorado
-- `TWITCH_BROADCASTER_ID` — ID numérico do broadcaster Twitch
-- `TWITCH_USERNAME` — Nome de usuário do bot Twitch
-- `TWITCH_REDIRECT_URI` — Callback URL do OAuth Twitch
+- `npm run dev`: run with `.env`
+- `npm run dev:dev`: run with `.env.dev`
+- `npm run watch`: watch mode with `.env`
+- `npm run watch:dev`: watch mode with `.env.dev`
+- `npm run build`: compile TypeScript and copy generated Prisma client
+- `npm run start`: run compiled output
+- `npm run check`: TypeScript validation
 
-Variáveis opcionais:
+## Discord Commands
 
-- `TWITCH_CLIENT_ID` — Client ID do app Twitch
-- `TWITCH_CLIENT_SECRET` — Secret do app Twitch
-- `TWITCH_REFRESH_TOKEN` — Refresh token para renovar o access token Twitch
-- `TWITCH_USER_TOKEN` — Token fixo do bot Twitch (fallback)
-- `TWITCH_BOT_ID` — ID numérico do bot Twitch
-- `TWITCH_EVENTSUB_CALLBACK` — URL pública do webhook EventSub
-- `TWITCH_EVENTSUB_SECRET` — Segredo HMAC do EventSub
-- `INTEGRATION_LOGS_CHANNEL_ID` — Canal Discord para logs de mensagens Twitch
-- `GUILD_ID` — Guild principal (uso para verificar boosters)
+### Public / Utility
 
-> Para renovar tokens automaticamente, use `TWITCH_REFRESH_TOKEN` com `TWITCH_CLIENT_ID` e `TWITCH_CLIENT_SECRET`. Caso contrário, o bot usa `TWITCH_USER_TOKEN` como fallback.
+- `/ping`
+- `/link`
+- `/profile [user]`
+- `/live`
+- `/transferir <admin>`
+- `/regras`
 
----
+### Firecoins / Points
 
-## ▶️ Scripts disponíveis
+- `/pontos`
+- `/pay usuario:<DiscordUser|DiscordID|TwitchID|TwitchNickname> valor:<int>`
+- `/basemultiply valor:<number>`
+- `/eventstart name:<nome> tempo:<30m|2h|1d> multiplicador:<valor> descricao:<opcional>`
+- `/eventstop`
+- `/pointstatus`
 
-- `npm run dev` — executa em desenvolvimento usando `tsx` e `.env`
-- `npm run dev:dev` — executa com `.env.dev`
-- `npm run watch` — watch mode com `.env`
-- `npm run watch:dev` — watch mode com `.env.dev`
-- `npm run build` — compila TypeScript
-- `npm run start` — executa a versão compilada
-- `npm run check` — valida o TypeScript
+Administrative Discord commands are permission-gated with Discord permissions.
 
----
+## Twitch Commands
 
-## 🧠 Arquitetura do projeto
+### Public
 
-- `src/index.ts` — boot do Discord e inicialização geral
-- `src/twitch/index.ts` — cliente Twitch, bot, comandos e listeners
-- `src/server/server.ts` — servidor Express para OAuth Twitch e EventSub
-- `src/services/discord.ts` — helpers para envio de mensagens/embeds no Discord
-- `src/services/twitchAuth.ts` — token management e refresh da Twitch
-- `src/services/twitchHelix.ts` — chamadas à API Helix Twitch
-- `src/services/tickets.ts` — painel e fluxo de tickets Discord
-- `src/services/channelPoints.ts` — cálculo de pontos e bônus do usuário
-- `src/twitch/events/` — notificações de live, parceiros e tracker de viewership
-- `src/discord/commands/public/` — comandos públicos do Discord
-- `src/twitch/commands/` — comandos de chat Twitch
+- `!discord`
+- `!pontos`
+- `!events`
+- `!pay <DiscordUser|DiscordID|TwitchID|TwitchNickname> <valor>`
+- `!test`
 
----
+### Administrative
 
-## 💬 Comandos disponíveis
+- `!basemultiply <valor>`
+- `!eventstart <tempo> <multiplicador> <nome> | <descricao opcional>`
+- `!eventstop`
 
-### Discord
+Administrative Twitch commands are limited to moderators and the broadcaster.
 
-- `/ping` — resposta de teste com botão interativo
-- `/link` — gera link OAuth para vincular Twitch ao Discord
-- `/profile [user]` — mostra perfil com saldo, horas assistidas e bônus
-- `/live` — verifica se a live está online
-- `/transferir <admin>` — transfere o ticket atual para outro administrador
+## Firecoins System
 
-### Twitch
+Firecoins are influenced by:
 
-- `!discord` — envia convite/link do Discord no chat Twitch
-- `!test` — comando de teste que também publica embed no Discord
+- base multiplier
+- Twitch subscriber bonus
+- Discord booster bonus
+- per-user balance multiplier
+- scheduled event multiplier
 
----
+Points are granted based on viewer activity while the stream is live. The active multiplier breakdown is reused across Discord and Twitch surfaces.
 
-## 🔌 Fluxos e integrações
+## Scheduled Points Events
 
-- Twitch chat → Discord: mensagens do chat Twitch são enviadas para `INTEGRATION_LOGS_CHANNEL_ID`
-- EventSub: processado em `/webhook/twitch/eventsub`
-- OAuth Twitch: callback em `/auth/twitch/callback` vincula a conta
-- Viewer tracker: atualiza atividade de chat e recompensa pontos periodicamente
-- Ticket panel: botão em Discord cria ticket com modal e ações de aceitação/fechamento
-- Parceiros: o bot notifica quando canais parceiros entram em live
+The scheduled event flow is shared across Discord and Twitch:
 
----
+1. An admin schedules an event with duration, multiplier, name, and optional description.
+2. The bot creates a Discord guild scheduled event for the same window.
+3. The Firecoins multiplier activates when that event window starts.
+4. Twitch chat receives a start notification when the event becomes active.
+5. The event ends on both the bot and the guild event side together.
+6. Manual closure of the guild event syncs back to the bot.
 
-## 🗄️ Banco de dados
+Discord guild event details:
 
-O modelo principal `User` em `prisma/schema.prisma` contém:
+- event name matches the admin-provided event name
+- location points to `https://twitch.tv/<channel>`
+- description contains the optional admin description plus the multiplier
+
+## Firecoins Transfers
+
+Transfers support both Discord and Twitch entry points through one shared service.
+
+Validation rules include:
+
+- sender must exist in the database
+- target must exist in the database
+- amount must be an integer
+- self-transfer is blocked
+- insufficient balance is blocked
+
+All successful transfers are logged to a Discord audit channel with:
+
+- source platform
+- sender and receiver identities
+- amount
+- sender balance before/after
+- receiver balance before/after
+
+## Tickets
+
+The Discord ticket system includes:
+
+- panel publishing
+- category-based ticket creation
+- metadata tracking
+- responsible staff assignment
+- transfer between administrators
+- transcript generation and archival logging
+
+## Twitch Integration
+
+Twitch integration currently covers:
+
+- chat command handling
+- Twitch OAuth account linking
+- Helix lookups for user resolution
+- EventSub webhook processing
+- viewer activity tracking
+- live status checks
+- partner live notifications
+
+## Data Model
+
+The main persisted model is `User`, which currently includes:
 
 - `discordId`
 - `twitchId`
@@ -157,55 +240,31 @@ O modelo principal `User` em `prisma/schema.prisma` contém:
 - `isDiscordBooster`
 - `hoursWatched`
 - `balance`
+- `balancemultiplier`
 - `lastSeenInChat`
+- timestamps
 
----
+## Operational Notes
 
-## 🔒 Segurança
+- A Discord account can only be linked to one Twitch account.
+- A Twitch account can only be linked to one Discord account.
+- Relinking should be handled administratively when needed.
+- Current points event runtime state is handled in memory.
+- Transfer and event activity include console logging for auditability.
 
-- Não versionar `.env` reais
-- Use permissões mínimas para bot Discord e app Twitch
-- Regenerar `TWITCH_CLIENT_SECRET`/`TWITCH_REFRESH_TOKEN` se expostos
-- Verifique se a callback Twitch está registrada corretamente no app Twitch
+## Security Notes
 
----
+- Do not commit real `.env` secrets.
+- Keep Twitch client secrets and refresh tokens private.
+- Register the exact OAuth callback and EventSub webhook URLs in the Twitch developer console.
+- Use the minimum Discord permissions required for the bot.
 
-## 📌 Personalização rápida
+## Current Status
 
-- Adicione comandos Twitch em `src/twitch/commands/`
-- Adapte comandos Discord em `src/discord/commands/public/`
-- Configure parceiros em `src/twitch/events/partnerNotifier.ts`
-- Personalize o painel de tickets em `src/services/tickets.ts`
+The project is actively evolving and already provides a strong cross-platform foundation for:
 
----
-
-## 💡 Observações finais
-
-Este projeto já suporta integrações multiplataforma e pode servir como base para:
-
-- sistema de fidelidade/recompensas
-- atendimento via tickets
-- notificações de live e parceiros
-- automações entre Discord e Twitch
-
-
-- Um Discord só pode ter uma Twitch vinculada  
-- Uma Twitch só pode estar vinculada a um Discord  
-- Relink só pode ser feito manualmente por administrador  
-
----
-
-## 📂 Estrutura Simplificada
-
-```
-src/
- ├── discord/
- ├── twitch/
- ├── modules/
- ├── services/
- └── prisma/
-```
-
----
-
-🚧 Projeto em desenvolvimento.
+- loyalty and rewards systems
+- live community operations
+- moderation support
+- support ticket workflows
+- Discord/Twitch automation

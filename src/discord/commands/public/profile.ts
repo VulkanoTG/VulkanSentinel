@@ -121,6 +121,7 @@ createCommand({
     const pointsBreakdown = getChannelPointBreakdown({
       isTwitchSub: user.isTwitchSub,
       isDiscordBooster: user.isDiscordBooster,
+      balanceMultiplier: user.balancemultiplier,
     });
 
     const activeBonusText = pointsBreakdown.activeBonuses
@@ -129,7 +130,7 @@ createCommand({
       .join("\n") || "Nenhum bonus ativo";
 
     const embed = new EmbedBuilder()
-      .setColor(appConfig.discord.tickets.embedColor)
+      .setColor(appConfig.discord.profile.embedColor)
       .setTitle(`Perfil de ${profileName}`)
       .setDescription(
         guildMember

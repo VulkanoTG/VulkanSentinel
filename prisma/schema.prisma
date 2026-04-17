@@ -26,6 +26,7 @@ model User {
   
   hoursWatched  Float    @default(0)
   balance       Int      @default(100)
+  balancemultiplier Float    @default(1.0)
 
   lastSeenInChat DateTime?
 
