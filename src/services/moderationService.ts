@@ -169,10 +169,6 @@ export class ModerationService {
           directPunishment.durationMs!,
           params.reason
         );
-        await punishmentService.notifyDirectPunishmentOnDiscord(
-          params.target.discordId,
-          directPunishment.label
-        );
       }
 
       if (params.target.twitchId || params.target.twitchLogin) {
@@ -180,10 +176,6 @@ export class ModerationService {
           params.target,
           directPunishment.durationMs!,
           params.reason
-        );
-        await punishmentService.notifyDirectPunishmentOnTwitch(
-          params.target,
-          directPunishment.label
         );
       }
 

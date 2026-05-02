@@ -62,7 +62,7 @@ export const appConfig = {
     logsChannelId: "1460107042068103394",
     publicLogsChannelId: "1499992302393884703",
     warningThreshold: 5,
-    directPunishmentMs: 24 * 60 * 60 * 1000,
+    directPunishmentMs: 10 * 60 * 1000,
     thresholdPunishmentMs: 2 * 60 * 60 * 1000,
     futureEscalation: [
       { punishmentNumber: 1, type: "timeout", durationMs: 10 * 60 * 1000, label: "10 minutos" },
