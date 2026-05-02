@@ -15,12 +15,16 @@ datasource db {
 
 }
 
-
 model User {
   id            Int      @id @default(autoincrement())
 
   discordId     String   @unique
   twitchId      String?  @unique
+
+  currentWarns  Int      @default(0)
+  totalWarns    Int      @default(0)
+  totalPunishments Int   @default(0)
+  
   isTwitchSub Boolean  @default(false)
   isDiscordBooster Boolean @default(false)
   

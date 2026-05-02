@@ -58,6 +58,18 @@ export const appConfig = {
   server: {
     port: 8080,
   },
+  moderation: {
+    logsChannelId: "1460107042068103394",
+    warningThreshold: 5,
+    directPunishmentMs: 2 * 60 * 60 * 1000,
+    thresholdPunishmentMs: 2 * 60 * 60 * 1000,
+    futureEscalation: [
+      { punishmentNumber: 1, type: "timeout", durationMs: 10 * 60 * 1000, label: "10 minutos" },
+      { punishmentNumber: 2, type: "timeout", durationMs: 60 * 60 * 1000, label: "1 hora" },
+      { punishmentNumber: 3, type: "timeout", durationMs: 24 * 60 * 60 * 1000, label: "1 dia" },
+      { punishmentNumber: 4, type: "ban", durationMs: null, label: "ban" },
+    ],
+  },
   twitch: {
     liveNotifier: {
       alertChannelId: "1442332409906331809",

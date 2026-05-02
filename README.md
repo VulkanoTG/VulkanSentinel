@@ -126,6 +126,7 @@ npm run check
 - `/link`
 - `/profile [user]`
 - `/live`
+- `/warn [usuario|alvo] motivo:<texto>`
 - `/transferir <admin>`
 - `/regras`
 
@@ -147,6 +148,7 @@ Administrative Discord commands are permission-gated with Discord permissions.
 - `!discord`
 - `!pontos`
 - `!events`
+- `!warn <usuario> <motivo>`
 - `!pay <DiscordUser|DiscordID|TwitchID|TwitchNickname> <valor>`
 - `!test`
 
@@ -236,6 +238,9 @@ The main persisted model is `User`, which currently includes:
 
 - `discordId`
 - `twitchId`
+- `currentWarns`
+- `totalWarns`
+- `totalPunishments`
 - `isTwitchSub`
 - `isDiscordBooster`
 - `hoursWatched`
@@ -251,6 +256,7 @@ The main persisted model is `User`, which currently includes:
 - Relinking should be handled administratively when needed.
 - Current points event runtime state is handled in memory.
 - Transfer and event activity include console logging for auditability.
+- Progressive moderation logs are sent to Discord instead of being stored in the database.
 
 ## Security Notes
 
@@ -258,6 +264,7 @@ The main persisted model is `User`, which currently includes:
 - Keep Twitch client secrets and refresh tokens private.
 - Register the exact OAuth callback and EventSub webhook URLs in the Twitch developer console.
 - Use the minimum Discord permissions required for the bot.
+- For Twitch moderation commands, the user token must include moderation scopes compatible with Helix bans/timeouts.
 
 ## Current Status
 

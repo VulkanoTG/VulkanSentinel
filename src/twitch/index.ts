@@ -14,6 +14,7 @@ import { processChatActivity, startWatchTracker } from "./events/viewertracker.j
 // Twitch Commands
 import "./commands/discord.js";
 import "./commands/test.js";
+import "./commands/warn.js";
 import "./commands/points/pontos.js";
 import "./commands/points/basemultiply.js";
 import "./commands/points/events.js";
