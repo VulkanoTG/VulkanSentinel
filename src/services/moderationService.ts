@@ -30,6 +30,7 @@ async function buildTargetFromLinkedUser(user: {
 
   return {
     discordId: user.discordId,
+    discordLabel: undefined,
     twitchId: user.twitchId ?? undefined,
     twitchLogin: twitchUser?.login,
   } satisfies ResolvedTarget;
@@ -245,7 +246,10 @@ export class ModerationService {
     await logService.logThresholdPunishment({
       user: linkedTarget,
       moderator: params.moderator,
+      reason: params.reason,
       durationLabel: thresholdPunishment.label,
+      threshold: appConfig.moderation.warningThreshold,
+      totalWarns: warnedUser.totalWarns,
       totalPunishments: punishedUser.totalPunishments,
     });
 

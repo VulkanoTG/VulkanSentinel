@@ -144,6 +144,9 @@ createCommand({
         { name: "Twitch ID", value: user.twitchId ?? "Nao vinculado", inline: false },
         { name: "Firecoins", value: `${appConfig.discord.profile.fireCoinsEmoji} ${user.balance ?? 0}`, inline: true },
         { name: "Horas Assistidas", value: `${formatWatchedHours(user.hoursWatched)}h`, inline: true },
+        { name: "Warns Atuais", value: `${user.currentWarns ?? 0}`, inline: true },
+        { name: "Warns Totais", value: `${user.totalWarns ?? 0}`, inline: true },
+        { name: "Punicoes", value: `${user.totalPunishments ?? 0}`, inline: true },
         { name: "Bonus Ativos", value: activeBonusText, inline: false }
       )
       .setFooter({ text: `ID interno: ${user.id} • Vulkan Sentinel` })

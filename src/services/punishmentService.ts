@@ -3,6 +3,13 @@ import { getDiscordClient } from "./discord.js";
 import { sendTwitchWhisper, getTwitchUserById, getTwitchUserByLogin, timeoutTwitchUser } from "./twitchHelix.js";
 import { getTwitchClient, hasTwitchClient } from "./twitch.js";
 
+export class DiscordModerationPermissionError extends Error {
+  constructor(message = "O bot nao tem permissao para aplicar timeout nesse usuario no Discord.") {
+    super(message);
+    this.name = "DiscordModerationPermissionError";
+  }
+}
+
 export type PunishmentType = "timeout" | "ban";
 
 export type PunishmentPlan = {
@@ -70,7 +77,29 @@ export class PunishmentService {
     const client = getDiscordClient();
     const guild = await client.guilds.fetch(env.GUILD_ID);
     const member = await guild.members.fetch(discordId);
-    await member.timeout(durationMs, reason);
+
+    if (!member.moderatable) {
+      throw new DiscordModerationPermissionError(
+        "O bot nao consegue aplicar timeout nesse usuario no Discord. Verifique a hierarquia de cargos e a permissao de moderar membros."
+      );
+    }
+
+    try {
+      await member.timeout(durationMs, reason);
+    } catch (error) {
+      if (
+        typeof error === "object" &&
+        error !== null &&
+        "code" in error &&
+        error.code === 50013
+      ) {
+        throw new DiscordModerationPermissionError(
+          "O bot nao tem permissao para aplicar timeout nesse usuario no Discord."
+        );
+      }
+
+      throw error;
+    }
 
     return member;
   }

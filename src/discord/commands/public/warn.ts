@@ -1,5 +1,6 @@
 import { createCommand } from "#base";
 import { moderationService } from "../../../services/moderationService.js";
+import { DiscordModerationPermissionError } from "../../../services/punishmentService.js";
 import {
   ApplicationCommandOptionType,
   ApplicationCommandType,
@@ -13,16 +14,10 @@ createCommand({
   defaultMemberPermissions: PermissionFlagsBits.ModerateMembers,
   options: [
     {
-      name: "usuario",
-      description: "Selecione o usuario do Discord",
-      type: ApplicationCommandOptionType.User,
-      required: false,
-    },
-    {
-      name: "alvo",
-      description: "Discord ID, mencao, nick, Twitch login ou Twitch ID",
+      name: "nick",
+      description: "Nick, mencao, ID do Discord, login da Twitch ou Twitch ID",
       type: ApplicationCommandOptionType.String,
-      required: false,
+      required: true,
     },
     {
       name: "motivo",
@@ -42,20 +37,11 @@ createCommand({
       return;
     }
 
-    const selectedUser = interaction.options.getUser("usuario");
-    const targetText = interaction.options.getString("alvo");
+    const targetText = interaction.options.getString("nick", true);
     const reason = interaction.options.getString("motivo", true).trim();
-
-    if (!selectedUser && !targetText) {
-      await interaction.editReply({
-        content: "Informe um usuario do Discord ou um alvo em texto.",
-      });
-      return;
-    }
 
     const target = await moderationService.resolveDiscordTarget({
       guild: interaction.guild,
-      selectedDiscordUserId: selectedUser?.id,
       searchText: targetText,
     });
 
@@ -66,17 +52,35 @@ createCommand({
       return;
     }
 
-    const result = await moderationService.warn({
-      target,
-      moderator: {
-        platform: "discord",
-        id: interaction.user.id,
-        name: interaction.user.username,
-      },
-      reason,
-    });
+    let result;
+    try {
+      result = await moderationService.warn({
+        target,
+        moderator: {
+          platform: "discord",
+          id: interaction.user.id,
+          name: interaction.user.username,
+        },
+        reason,
+      });
+    } catch (error) {
+      if (error instanceof DiscordModerationPermissionError) {
+        await interaction.editReply({
+          content: error.message,
+        });
+        return;
+      }
+
+      throw error;
+    }
 
     if (result.status === "unlinked_direct_punishment") {
+      if (target.discordId) {
+        await interaction.channel?.send({
+          content: `<@${target.discordId}> esta tomando punicao direta por nao ter a conta vinculada. Aplicado: ${result.durationLabel}.`,
+        }).catch(() => null);
+      }
+
       await interaction.editReply({
         content: `Usuario nao vinculado. Punicao direta aplicada por ${result.durationLabel}.`,
       });
@@ -84,6 +88,12 @@ createCommand({
     }
 
     if (result.status === "warned_and_punished") {
+      if (target.discordId) {
+        await interaction.channel?.send({
+          content: `<@${target.discordId}> atingiu o limite de warns e recebeu punicao automatica por ${result.durationLabel}.`,
+        }).catch(() => null);
+      }
+
       await interaction.editReply({
         content: `Warning registrado e limite de ${result.threshold} warns atingido. Punicao automatica aplicada por ${result.durationLabel}. Total de punicoes: ${result.totalPunishments}.`,
       });
