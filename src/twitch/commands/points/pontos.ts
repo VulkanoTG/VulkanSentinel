@@ -1,19 +1,21 @@
 import { appConfig } from "#config";
 import { prisma } from "#database";
 import { getChannelPointBreakdown } from "../../../services/channelPoints.js";
+import { sendBotChatMessage } from "../../../services/twitchChat.js";
 import { createTwitchCommand } from "../../base.js";
 
 createTwitchCommand({
   name: "pontos",
-  description: "Mostra quantos firecoins o usuario tem",
+  description: "Mostra quantos Firecoins o usuário tem",
   async run(client, channel, tags) {
     const twitchId = tags["user-id"];
     const username = tags.username?.toLowerCase();
 
     if (!twitchId || !username) {
-      await client.say(
+      await sendBotChatMessage(
+        client,
         channel,
-        "Nao consegui identificar sua conta da Twitch agora. Tente novamente em instantes."
+        "Não consegui identificar sua conta da Twitch agora. Tente novamente em instantes."
       );
       return;
     }
@@ -29,9 +31,10 @@ createTwitchCommand({
     });
 
     if (!user) {
-      await client.say(
+      await sendBotChatMessage(
+        client,
         channel,
-        `@${username}, para ganhar e consultar seus firecoins, conecte sua conta no Discord com /link. Entre aqui: ${appConfig.discord.inviteUrl}`
+        `@${username}, para ganhar e consultar seus Firecoins, conecte sua conta ao Discord com /link. Entre aqui: ${appConfig.discord.inviteUrl}`
       );
       return;
     }
@@ -47,11 +50,12 @@ createTwitchCommand({
       .map((bonus) => `${bonus.label} x${bonus.value}`)
       .join(", ");
 
-    await client.say(
+    await sendBotChatMessage(
+      client,
       channel,
       activeBonuses
-        ? `@${username}, voce tem ${user.balance} firecoins. Bonus ativos: ${activeBonuses}.`
-        : `@${username}, voce tem ${user.balance} firecoins.`
+        ? `@${username}, você tem ${user.balance} Firecoins. Bônus ativos: ${activeBonuses}.`
+        : `@${username}, você tem ${user.balance} Firecoins.`
     );
   },
 });

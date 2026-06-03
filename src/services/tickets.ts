@@ -1,4 +1,4 @@
-import { appConfig } from "#config";
+import { appConfig, env } from "#config";
 import {
   LabelBuilder,
   ModalBuilder as BuildersModalBuilder,
@@ -574,4 +574,54 @@ export async function finalizeTranscriptLog(params: FinalizeTranscriptLogParams)
     embedMessage,
     archiveMessage,
   };
+}
+
+async function pruneChannelMessages(channelId: string, cutoff: number) {
+  const client = getDiscordClient();
+  const channel = await client.channels.fetch(channelId).catch(() => null);
+
+  if (!channel || !channel.isTextBased() || channel.isDMBased() || !("messages" in channel)) {
+    return 0;
+  }
+
+  let removed = 0;
+  let before: string | undefined;
+
+  while (true) {
+    const batch = await channel.messages.fetch({ limit: 100, before });
+    if (batch.size === 0) {
+      break;
+    }
+
+    const messages = Array.from(batch.values());
+    for (const message of messages) {
+      if (message.createdTimestamp >= cutoff) {
+        continue;
+      }
+
+      await message.delete().catch(() => null);
+      removed += 1;
+    }
+
+    before = messages.at(-1)?.id;
+  }
+
+  return removed;
+}
+
+export async function pruneTicketArchives() {
+  const retentionDays = env.TICKET_TRANSCRIPT_RETENTION_DAYS;
+  if (!retentionDays) {
+    return;
+  }
+
+  const cutoff = Date.now() - retentionDays * 24 * 60 * 60 * 1000;
+  const [transcriptMessages, archiveMessages] = await Promise.all([
+    pruneChannelMessages(TICKET_TRANSCRIPTS_CHANNEL_ID, cutoff),
+    pruneChannelMessages(TICKET_TRANSCRIPT_ARCHIVE_CHANNEL_ID, cutoff),
+  ]);
+
+  console.log(
+    `[Tickets] Retencao LGPD executada. ${transcriptMessages} mensagens removidas do arquivo e ${archiveMessages} do log final.`
+  );
 }

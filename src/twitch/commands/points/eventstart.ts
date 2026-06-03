@@ -2,6 +2,7 @@ import {
   syncChannelPointsGuildEvent,
   startEventWithDuration,
 } from "../../../services/channelPointsAdmin.js";
+import { sendBotChatMessage } from "../../../services/twitchChat.js";
 import { createTwitchCommand } from "../../base.js";
 import { isTwitchPointsAdmin } from "./shared.js";
 
@@ -10,14 +11,15 @@ createTwitchCommand({
   description: "Inicia um evento de pontos",
   async run(client, channel, tags, args) {
     if (!isTwitchPointsAdmin(tags)) {
-      await client.say(channel, `@${tags.username}, voce nao tem permissao para esse comando.`);
+      await sendBotChatMessage(client, channel, `@${tags.username}, voce nao tem permissao para esse comando.`);
       return;
     }
 
     const action = args[0]?.toLowerCase();
 
     if (!action) {
-      await client.say(
+      await sendBotChatMessage(
+        client,
         channel,
         "Uso: !eventstart <tempo> <multiplicador> <nome> | <descricao opcional>"
       );
@@ -25,7 +27,7 @@ createTwitchCommand({
     }
 
     if (args.length < 3) {
-      await client.say(channel, "Uso: !eventstart <tempo> <multiplicador> <nome> | <descricao opcional>");
+      await sendBotChatMessage(client, channel, "Uso: !eventstart <tempo> <multiplicador> <nome> | <descricao opcional>");
       return;
     }
 
@@ -35,7 +37,7 @@ createTwitchCommand({
     const rawBeforeTail = rawAfterHead.trim();
 
     if (!rawBeforeTail) {
-      await client.say(channel, "Uso: !eventstart <tempo> <multiplicador> <nome> | <descricao opcional>");
+      await sendBotChatMessage(client, channel, "Uso: !eventstart <tempo> <multiplicador> <nome> | <descricao opcional>");
       return;
     }
 
@@ -44,7 +46,7 @@ createTwitchCommand({
       .map((part) => part.trim());
 
     if (!eventName) {
-      await client.say(channel, "Voce precisa informar o nome do evento. Exemplo: !eventstart 30m 2 Dobro de Firecoins | Evento especial da live");
+      await sendBotChatMessage(client, channel, "Voce precisa informar o nome do evento. Exemplo: !eventstart 30m 2 Dobro de Firecoins | Evento especial da live");
       return;
     }
 
@@ -62,6 +64,6 @@ createTwitchCommand({
       });
     }
 
-    await client.say(channel, result.message);
+    await sendBotChatMessage(client, channel, result.message);
   },
 });

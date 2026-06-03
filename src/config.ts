@@ -1,4 +1,4 @@
-import { validateEnv } from "@constatic/base";
+import { validateEnv } from "./shared/validateEnv.js";
 import { z } from "zod";
 
 export const appConfig = {
@@ -39,6 +39,9 @@ export const appConfig = {
       embedColor: 0x45ddc0,
       auditEmbedColor: 0x1f9d74,
     },
+    controllerMarkers: {
+      channelId: "1507184881183227985",
+    },
     tickets: {
       panelChannelId: "1460105384667779075",
       transcriptsChannelId: "1491673864223199252",
@@ -55,8 +58,23 @@ export const appConfig = {
       ],
     },
   },
+  web: {
+    siteUrl: "https://vulkansentinel.discloud.app",
+  },
   server: {
     port: 8080,
+    agent: {
+      wsPath: "/ws/agent",
+    },
+  },
+
+  // Costo padrão de recompensas, pode ser sobrescrito por eventos ou status de usuário (sub/booster)
+  rewards: {
+    soundalertCost: 1200,
+    voicemodCost: 2800,
+    spotifyQueueCost: 20,
+    chaosCost: 6500,
+    mouseAxesInvertCost: 6500,
   },
   moderation: {
     logsChannelId: "1460107042068103394",
@@ -72,6 +90,20 @@ export const appConfig = {
     ],
   },
   twitch: {
+    ignoredUsers: [
+      "nightbot",
+      "streamelements",
+      "moobot",
+      "streamlabs",
+      "wizebot",
+      "coebot",
+      "phantombot",
+      "ankhbot",
+      "fossabot",
+      "deepbot",
+      "vertozbot",
+      "vulkansentinel",
+    ],
     liveNotifier: {
       alertChannelId: "1442332409906331809",
       checkIntervalMs: 60_000,
@@ -81,17 +113,19 @@ export const appConfig = {
     partnerNotifier: {
       alertChannelId: "1442335000966987867",
       checkIntervalMs: 60_000,
+      cleanupIntervalDays: 3,
       embedColor: 0xff8a3d,
       partners: [
         { login: "satooro", label: "satooro" },
         { login: "bela_puffy", label: "bela_puffy" },
+        { login: "botafoguensetriste", label: "botafoguensetriste" },
+        { login: "adrian_olich", label: "adrian_olich" },
       ],
     },
     viewerTracker: {
       watchIntervalMinutes: 10,
       activeWindowMinutes: 30,
-      warningCooldownMinutes: 30,
-      ignoreUsers: ["nightbot", "streamelements", "moobot", "streamlabs", "wizebot", "coebot", "phantombot", "ankhbot", "fossabot", "deepbot", "vertozbot"],
+      unlinkedWarningCooldownHours: 24,
     },
     channelPoints: {
       points: 30,
@@ -121,6 +155,16 @@ export const env = await validateEnv(z.looseObject({
   TWITCH_REFRESH_TOKEN: z.string().optional(),
   TWITCH_USERNAME: z.string("Twitch username is required").min(1),
   TWITCH_REDIRECT_URI: z.string("CallbackUrl is required").min(1),
+  WEB_SESSION_SECRET: z.string().min(16).optional(),
   TWITCH_EVENTSUB_CALLBACK: z.url().optional(),
   TWITCH_EVENTSUB_SECRET: z.string().min(10).optional(),
+  SPOTIFY_CLIENT_ID: z.string().optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().optional(),
+  SPOTIFY_REFRESH_TOKEN: z.string().optional(),
+  SPOTIFY_DEVICE_ID: z.string().optional(),
+  VULKAN_AGENT_KEYS: z.string().optional(),
+  VOICEMOD_DEFAULT_VOICE_ID: z.string().optional(),
+  PRIVACY_CONTACT_EMAIL: z.email().optional(),
+  PRIVACY_POLICY_URL: z.url().optional(),
+  TICKET_TRANSCRIPT_RETENTION_DAYS: z.coerce.number().int().positive().optional(),
 }));

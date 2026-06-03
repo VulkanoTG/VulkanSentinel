@@ -1,0 +1,34 @@
+[
+    {
+        "id": 1,
+        "key": "soundalert",
+        "cost": 1200,
+        "createdAt": "2026-05-16 15:50:24.81",
+        "updatedAt": "2026-05-16 15:50:24.81",
+        "enabled": false
+    },
+    {
+        "id": 2,
+        "key": "voicemod",
+        "cost": 15,
+        "createdAt": "2026-05-16 15:50:24.81",
+        "updatedAt": "2026-05-18 09:43:49.763",
+        "enabled": true
+    },
+    {
+        "id": 3,
+        "key": "spotifyQueue",
+        "cost": 20,
+        "createdAt": "2026-05-16 15:50:24.81",
+        "updatedAt": "2026-05-18 11:56:24.107",
+        "enabled": true
+    },
+    {
+        "id": 4,
+        "key": "chaos",
+        "cost": 6500,
+        "createdAt": "2026-05-16 15:50:24.81",
+        "updatedAt": "2026-05-16 15:50:24.81",
+        "enabled": false
+    }
+]

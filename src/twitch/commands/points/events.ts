@@ -1,4 +1,5 @@
 import { getChannelPointsConfig } from "../../../services/channelPoints.js";
+import { sendBotChatMessage } from "../../../services/twitchChat.js";
 import { createTwitchCommand } from "../../base.js";
 
 function formatDateTime(date: Date | null) {
@@ -42,19 +43,21 @@ createTwitchCommand({
     const config = getChannelPointsConfig();
 
     if (!config.activeEventName || !config.eventEndsAt) {
-      await client.say(channel, "Nenhum evento de pontos ativo ou agendado no momento.");
+      await sendBotChatMessage(client, channel, "Nenhum evento de pontos ativo ou agendado no momento.");
       return;
     }
 
     if (!config.eventMultiplierActive && config.eventStartsAt) {
-      await client.say(
+      await sendBotChatMessage(
+        client,
         channel,
         `Evento agendado: ${config.activeEventName}. Comeca as ${formatDateTime(config.eventStartsAt)} com multiplicador x${config.eventMultiply}.`
       );
       return;
     }
 
-    await client.say(
+    await sendBotChatMessage(
+      client,
       channel,
       `Evento ativo: ${config.activeEventName}. Multiplicador x${config.eventMultiply}. Termina em ${formatRemainingTime(config.eventEndsAt)}.`
     );

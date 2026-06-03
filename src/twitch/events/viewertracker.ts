@@ -1,8 +1,10 @@
 import { appConfig } from "#config";
 import { prisma } from "#database";
 import { calculateChannelPoints } from "../../services/channelPoints.js";
+import { sendBotChatMessage } from "../../services/twitchChat.js";
 import { isStreamLiveCached, onLiveStatusChange } from "../../services/liveStatus.js";
 import { getTwitchClient } from "../../services/twitch.js";
+import { isIgnoredTwitchUser } from "../shared.js";
 
 const viewerTrackerConfig = appConfig.twitch.viewerTracker;
 const warningCooldown = new Map<string, number>();
@@ -16,7 +18,7 @@ export async function processChatActivity(channel: string, tags: any) {
 
   if (!twitchId || !username) return;
 
-  if (viewerTrackerConfig.ignoreUsers.includes(username)) {
+  if (isIgnoredTwitchUser(username)) {
     return;
   }
 
@@ -34,16 +36,17 @@ export async function processChatActivity(channel: string, tags: any) {
 
     if (
       lastWarning &&
-      now - lastWarning < viewerTrackerConfig.warningCooldownMinutes * 60 * 1000
+      now - lastWarning < viewerTrackerConfig.unlinkedWarningCooldownHours * 60 * 60 * 1000
     ) {
       return;
     }
 
     warningCooldown.set(username, now);
 
-    await client.say(
+    await sendBotChatMessage(
+      client,
       channel,
-      "Para ganhar firecoins da live conecte sua conta usando /link em nosso servidor do Discorde siga as instruções para vincular sua Twitch!"
+      "Para ganhar firecoins da live conecte sua conta usando /link em nosso servidor do Discord siga as instruções para vincular sua Twitch!"
     );
 
     return;

@@ -3,33 +3,47 @@
   "type": "module",
   "main": "build/index.js",
   "scripts": {
-    "check": "tsc --noEmit && echo ✔ Ok",
-    "build": "tsc && xcopy src\\generated build\\generated /E /I /Y",
-    "dev": "tsx --env-file=.env ./src/index.ts",
-    "dev:dev": "tsx --env-file=.env.dev ./src/index.ts",
+    "clean": "node ./scripts/clean.mjs",
+    "check:text": "node ./scripts/check-mojibake.mjs",
+    "check": "npm run check:text && tsc --noEmit && echo Ok",
+    "build": "npm run build:bot",
+    "build:bot": "npm run clean && node ./scripts/build.mjs",
+    "discloud:zip": "node ./scripts/create-discloud-zip.mjs",
+    "dev": "npm run dev:bot",
+    "dev:bot": "tsx --env-file=.env ./src/index.ts",
+    "dev:dev": "npm run dev:bot:dev",
+    "dev:bot:dev": "tsx --env-file=.env.dev ./src/index.ts",
+    "spotify:devices": "node --env-file=.env ./scripts/spotify-devices.mjs",
+    "spotify:devices:dev": "node --env-file=.env.dev ./scripts/spotify-devices.mjs",
+    "spotify:token": "node --env-file=.env ./scripts/spotify-refresh-token.mjs",
+    "spotify:token:dev": "node --env-file=.env.dev ./scripts/spotify-refresh-token.mjs",
+    "db:import-json": "tsx --env-file=.env ./src/dev/importDbJson.ts",
+    "overlay:dev": "tsx ./src/dev/overlayDev.ts",
+    "overlay:preview": "node ./scripts/overlay-preview.mjs",
     "watch": "tsx --watch --env-file=.env ./src/index.ts",
     "watch:dev": "tsx --watch --env-file=.env.dev ./src/index.ts",
-    "start": "node --env-file=.env .",
-    "start:dev": "node --env-file=.env.dev ."
+    "start": "node --env-file=.env ./build/index.js",
+    "start:bot": "node --env-file=.env ./build/index.js",
+    "start:dev": "node --env-file=.env.dev ./build/index.js"
   },
   "dependencies": {
     "@constatic/base": "latest",
     "@magicyan/discord": "1.7.0",
-    "@prisma/adapter-pg": "^7.4.2",
-    "@prisma/client": "^7.4.1",
+    "@prisma/adapter-pg": "^7.8.0",
+    "@prisma/client": "^7.8.0",
     "chalk": "5.6.2",
+    "concurrently": "^9.2.1",
     "discord.js": "^14.26.4",
     "dotenv": "^17.3.1",
-    "express": "^5.2.1",
-    "prisma": "^6.19.3",
     "rou3": "0.7.10",
     "tmi.js": "^1.8.5",
+    "ws": "^8.20.1",
     "zod": "4.1.11"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
     "@types/node": "^22.19.13",
     "@types/tmi.js": "^1.8.6",
+    "prisma": "^7.8.0",
     "tsx": "4.19.3",
     "typescript": "5.9.3"
   },
@@ -45,9 +59,6 @@
     ],
     "#database": [
       "./build/database/index.js"
-    ],
-    "#server": [
-      "./build/server/server.js"
     ],
     "#helix": [
       "./build/services/twitchHelix.js"

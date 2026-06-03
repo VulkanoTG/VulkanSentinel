@@ -9,7 +9,7 @@ The project is built around two runtime fronts:
 - Discord, powered by `discord.js`
 - Twitch chat, powered by `tmi.js`
 
-Both fronts share the same business services for user state, Firecoins, event scheduling, transfer validation, and persistence. Prisma is used for the data layer, while Express handles Twitch OAuth and EventSub webhooks.
+Both fronts share the same business services for user state, Firecoins, event scheduling, transfer validation, and persistence. Prisma is used for the data layer, while Next.js handles the web surface, Twitch OAuth, and EventSub webhooks.
 
 ## Core Capabilities
 
@@ -32,7 +32,7 @@ Both fronts share the same business services for user state, Firecoins, event sc
 - tmi.js
 - Prisma
 - PostgreSQL
-- Express
+- Next.js
 - zod
 - @constatic/base
 
@@ -42,17 +42,20 @@ Both fronts share the same business services for user state, Firecoins, event sc
 src/
   database/      Prisma client bootstrap
   discord/       Discord commands, events, responders
-  server/        Express routes for OAuth and EventSub
   services/      Shared business logic and integrations
   shared/        Shared runtime utilities
   twitch/        Twitch commands, events, client bootstrap
+  web/           Shared web/session/profile helpers
+app/             Next.js route handlers
+public/          Static assets served by Next.js
 ```
 
 Important files:
 
 - `src/index.ts`: main app bootstrap and graceful shutdown
 - `src/twitch/index.ts`: Twitch client bootstrap and chat command dispatch
-- `src/server/server.ts`: HTTP server, Twitch OAuth callback, EventSub endpoint
+- `app/auth/twitch/callback/route.ts`: Twitch OAuth callback on Next.js
+- `app/webhook/twitch/eventsub/route.ts`: Twitch EventSub endpoint on Next.js
 - `src/services/channelPoints.ts`: Firecoins event state and multiplier engine
 - `src/services/channelPointsAdmin.ts`: admin-facing event and multiplier controls
 - `src/services/channelPointTransfers.ts`: shared transfer workflow and audit logging
@@ -99,7 +102,7 @@ npx prisma migrate dev
 Run in development:
 
 ```bash
-npm run dev
+npm run dev:dev
 ```
 
 Type-check the project:
@@ -111,11 +114,18 @@ npm run check
 ## Runtime Scripts
 
 - `npm run dev`: run with `.env`
-- `npm run dev:dev`: run with `.env.dev`
+- `npm run dev:bot`: run bot with `.env`
+- `npm run dev:web`: run Next.js with `.env`
+- `npm run dev:dev`: run bot + Next.js with `.env.dev`
+- `npm run dev:bot:dev`: run bot with `.env.dev`
+- `npm run dev:web:dev`: run Next.js with `.env.dev`
 - `npm run watch`: watch mode with `.env`
 - `npm run watch:dev`: watch mode with `.env.dev`
-- `npm run build`: compile TypeScript and copy generated Prisma client
-- `npm run start`: run compiled output
+- `npm run build`: build bot + Next.js
+- `npm run build:bot`: clean `build`, compile TypeScript, and copy `generated` and `assets`
+- `npm run build:web`: build Next.js
+- `npm run start`: run compiled bot output
+- `npm run start:web`: run Next.js production server
 - `npm run check`: TypeScript validation
 
 ## Discord Commands
@@ -146,6 +156,8 @@ Administrative Discord commands are permission-gated with Discord permissions.
 ### Public
 
 - `!discord`
+- `!site`
+- `!recompensa`
 - `!pontos`
 - `!events`
 - `!warn <usuario> <motivo>`
@@ -265,6 +277,24 @@ The main persisted model is `User`, which currently includes:
 - Register the exact OAuth callback and EventSub webhook URLs in the Twitch developer console.
 - Use the minimum Discord permissions required for the bot.
 - For Twitch moderation commands, the user token must include moderation scopes compatible with Helix bans/timeouts.
+
+## LGPD
+
+The project now includes a baseline LGPD layer:
+
+- public privacy notice at `/privacidade`
+- `/lgpd` Discord command for summary, personal data export, and rights requests
+- signed OAuth `state` for Discord/Twitch account linking
+- configurable retention pruning for ticket transcripts through `TICKET_TRANSCRIPT_RETENTION_DAYS`
+
+Recommended environment variables:
+
+- `PRIVACY_CONTACT_EMAIL`
+- `PRIVACY_POLICY_URL`
+- `TICKET_TRANSCRIPT_RETENTION_DAYS`
+- `WEB_SESSION_SECRET`
+
+Operational guidance is documented in [docs/LGPD.md](docs/LGPD.md).
 
 ## Current Status
 

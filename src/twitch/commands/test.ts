@@ -1,13 +1,14 @@
 import { appConfig, env } from "#config";
 import { createEmbed } from "@magicyan/discord";
 import { sendEmbedToChannel } from "../../services/discord.js";
+import { sendBotChatMessage } from "../../services/twitchChat.js";
 import { createTwitchCommand } from "../base.js";
 
 createTwitchCommand({
   name: "test",
   description: "Comando de teste",
   async run(client, channel, tags) {
-    client.say(channel, `@${tags.username}, teste!`);
+    await sendBotChatMessage(client, channel, `@${tags.username}, teste!`);
 
     try {
       const embed = createEmbed({

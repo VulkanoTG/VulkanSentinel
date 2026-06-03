@@ -1,4 +1,5 @@
 import { createCommand } from "#base";
+import { ensureDiscordModeratorAccess } from "../../../services/discordPermissions.js";
 import { moderationService } from "../../../services/moderationService.js";
 import { DiscordModerationPermissionError } from "../../../services/punishmentService.js";
 import {
@@ -34,6 +35,10 @@ createCommand({
       await interaction.editReply({
         content: "Esse comando precisa ser usado dentro do servidor.",
       });
+      return;
+    }
+
+    if (!(await ensureDiscordModeratorAccess(interaction))) {
       return;
     }
 
@@ -75,12 +80,6 @@ createCommand({
     }
 
     if (result.status === "unlinked_direct_punishment") {
-      if (target.discordId) {
-        await interaction.channel?.send({
-          content: `<@${target.discordId}> esta tomando punicao direta por nao ter a conta vinculada. Aplicado: ${result.durationLabel}.`,
-        }).catch(() => null);
-      }
-
       await interaction.editReply({
         content: `Usuario nao vinculado. Punicao direta aplicada por ${result.durationLabel}.`,
       });

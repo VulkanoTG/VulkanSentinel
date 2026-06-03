@@ -14,7 +14,6 @@
 			"#base": ["./src/discord/index.ts"],
 			"#functions": ["./src/functions/index.ts"],
 			"#database": ["./src/database/index.ts"],
-			"#server": ["./src/server/server.ts"],
 			"#menus": ["./src/menus/index.ts"],
 			"#tools": ["./src/tools/index.ts"],
 			"#lib/*": ["./src/lib/*"],

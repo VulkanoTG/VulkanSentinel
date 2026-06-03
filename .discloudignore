@@ -1,31 +1,38 @@
-# Essential structure
-# - /build
-# - /.env
-# - /.discloudignore
-# - /discloud.config
-# - /package.json
-# - /tsconfig.json
+# Ignore arquivos e pastas que nao sao necessarios para o build remoto
 
-# Ignored structure
-
-# Folders
+# VCS / editor
+/.git
 /.vscode
-/src
-/deprecated
-/discloud
+
+# Dependencias e artefatos locais
 /node_modules
+/src/generated
 
-# Files
-/.env.development
+# Logs e backups locais
+/discloud
+*.log
+
+# Ambiente local extra
 /.env.dev
+/.env.development
 /.env.example
-/.eslintrc.json
-/.gitignore
-/tsconfig.json
-/README.md
 
-# Extensions
+# Documentacao e anexos
+/docs
 *.md
 *.zip
 *.exe
-*.development.json
+
+# Scripts e atalhos locais de Windows que nao entram no runtime
+*.bat
+
+# Mantem no upload tudo que o build remoto precisa:
+# - build (necessario para o CLI validar o MAIN=build/index.js no upload por pasta)
+# - src
+# - public
+# - prisma
+# - package.json / package-lock.json
+# - tsconfig.json
+# - prisma.config.ts
+# - discloud.config
+# - .env

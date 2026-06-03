@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
   output   = "../src/generated/prisma"
@@ -11,28 +5,71 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 model User {
-  id            Int      @id @default(autoincrement())
+  id                Int         @id @default(autoincrement())
+  discordId         String      @unique
+  twitchId          String?     @unique
+  currentWarns      Int         @default(0)
+  totalWarns        Int         @default(0)
+  totalPunishments  Int         @default(0)
+  isTwitchSub       Boolean     @default(false)
+  isDiscordBooster  Boolean     @default(false)
+  isModerator       Boolean     @default(false)
+  hoursWatched      Float       @default(0)
+  balance           Int         @default(100)
+  balancemultiplier Float       @default(1.0)
+  lastSeenInChat    DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  badges            UserBadge[]
+}
 
-  discordId     String   @unique
-  twitchId      String?  @unique
+model Badge {
+  id          Int         @id @default(autoincrement())
+  key         String      @unique
+  name        String
+  description String?
+  iconUrl     String?
+  active      Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  users       UserBadge[]
+}
 
-  currentWarns  Int      @default(0)
-  totalWarns    Int      @default(0)
-  totalPunishments Int   @default(0)
-  
-  isTwitchSub Boolean  @default(false)
-  isDiscordBooster Boolean @default(false)
-  
-  hoursWatched  Float    @default(0)
-  balance       Int      @default(100)
-  balancemultiplier Float    @default(1.0)
+model UserBadge {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  badgeId      Int
+  equipped     Boolean  @default(false)
+  displayOrder Int      @default(0)
+  source       String?
+  note         String?
+  acquiredAt   DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  badge        Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  lastSeenInChat DateTime?
+  @@unique([userId, badgeId])
+  @@index([userId, equipped, displayOrder])
+  @@index([badgeId])
+}
 
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+model RewardSetting {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  cost      Int
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Modules {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  enabled   Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

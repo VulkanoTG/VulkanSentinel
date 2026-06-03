@@ -2,6 +2,7 @@ import {
   syncChannelPointsGuildEvent,
   stopEventNow,
 } from "../../../services/channelPointsAdmin.js";
+import { sendBotChatMessage } from "../../../services/twitchChat.js";
 import { createTwitchCommand } from "../../base.js";
 import { isTwitchPointsAdmin } from "./shared.js";
 
@@ -10,7 +11,7 @@ createTwitchCommand({
   description: "Encerra um evento de pontos ativo ou agendado",
   async run(client, channel, tags) {
     if (!isTwitchPointsAdmin(tags)) {
-      await client.say(channel, `@${tags.username}, voce nao tem permissao para esse comando.`);
+      await sendBotChatMessage(client, channel, `@${tags.username}, voce nao tem permissao para esse comando.`);
       return;
     }
 
@@ -23,6 +24,6 @@ createTwitchCommand({
       });
     }
 
-    await client.say(channel, result.message);
+    await sendBotChatMessage(client, channel, result.message);
   },
 });

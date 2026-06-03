@@ -2,7 +2,9 @@ import { env } from "#config";
 import tmi from "tmi.js";
 import { setTwitchClient } from "../services/twitch.js";
 import { getTokenTimeLeft, getTwitchAccessToken } from "../services/twitchAuth.js";
+import { sendBotChatMessage } from "../services/twitchChat.js";
 import { initializeLiveStatus } from "../services/liveStatus.js";
+import { publishChatOverlayMessage } from "../services/chatOverlay.js";
 import { getTwitchCommands } from "./base.js";
 
 import { handleAntiSpam } from "./events/antiSpam.js";
@@ -13,6 +15,8 @@ import { processChatActivity, startWatchTracker } from "./events/viewertracker.j
 
 // Twitch Commands
 import "./commands/discord.js";
+import "./commands/pedirmusica.js";
+import "./commands/site.js";
 import "./commands/test.js";
 import "./commands/warn.js";
 import "./commands/points/pontos.js";
@@ -62,6 +66,13 @@ async function bootstrapTwitchClient() {
 
     client.on("message", async (channel: string, tags: any, message: string, self: boolean) => {
         if (self) return;
+        const isCommand = message.startsWith("!");
+        const isBotMessage =
+            (tags.username?.toLowerCase() ?? "") === env.TWITCH_USERNAME.toLowerCase() ||
+            (tags["display-name"]?.toLowerCase() ?? "") === env.TWITCH_USERNAME.toLowerCase() ||
+            (tags["user-id"] ?? "") === (env.TWITCH_BOT_ID ?? "");
+
+        if (isBotMessage) return;
 
         try {
             // ponte Twitch → Discord
@@ -71,6 +82,13 @@ async function bootstrapTwitchClient() {
             }
 
             await handleTwitchMessage(tags, message);
+            if (!isCommand) {
+                await publishChatOverlayMessage({
+                    username: tags["display-name"] ?? tags.username ?? "unknown",
+                    message,
+                    twitchId: tags["user-id"],
+                });
+            }
 
             // registra atividade no tracker
             await processChatActivity(channel, {
@@ -79,7 +97,7 @@ async function bootstrapTwitchClient() {
             });
 
             // comandos do chat
-            if (message.startsWith("!")) {
+            if (isCommand) {
                 const [commandName, ...args] = message.slice(1).split(/\s+/);
                 const command = getTwitchCommands().get(commandName.toLowerCase());
 
@@ -91,7 +109,7 @@ async function bootstrapTwitchClient() {
             console.error("Erro ao processar mensagem da Twitch:", error);
 
             if (message.startsWith("!")) {
-                client.say(channel, `@${tags.username}, erro ao executar comando!`);
+                await sendBotChatMessage(client, channel, `@${tags.username}, erro ao executar comando!`);
             }
         }
     });

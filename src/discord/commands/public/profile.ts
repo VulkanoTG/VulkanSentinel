@@ -1,5 +1,5 @@
 import { createCommand } from "#base";
-import { appConfig } from "#config";
+import { appConfig, env } from "#config";
 import { prisma } from "#database";
 import { getTwitchUserById } from "#helix";
 import {
@@ -9,6 +9,7 @@ import {
   PermissionFlagsBits,
   type ChatInputCommandInteraction,
 } from "discord.js";
+import { listUserBadges } from "../../../services/badges.js";
 import { getChannelPointBreakdown } from "../../../services/channelPoints.js";
 
 function formatWatchedHours(hoursWatched: number | null | undefined) {
@@ -17,6 +18,15 @@ function formatWatchedHours(hoursWatched: number | null | undefined) {
   const minutes = totalMinutes % 60;
 
   return `${hours}:${minutes.toString().padStart(2, "0")}`;
+}
+
+function getDashboardUrl() {
+  try {
+    const redirectUrl = new URL(env.TWITCH_REDIRECT_URI);
+    return new URL("/perfil", redirectUrl).toString();
+  } catch {
+    return null;
+  }
 }
 
 async function findUserByProfileInput(
@@ -118,16 +128,27 @@ createCommand({
       }
     }
 
-    const pointsBreakdown = getChannelPointBreakdown({
-      isTwitchSub: user.isTwitchSub,
-      isDiscordBooster: user.isDiscordBooster,
-      balanceMultiplier: user.balancemultiplier,
-    });
+    const [pointsBreakdown, badges] = await Promise.all([
+      Promise.resolve(
+        getChannelPointBreakdown({
+          isTwitchSub: user.isTwitchSub,
+          isDiscordBooster: user.isDiscordBooster,
+          balanceMultiplier: user.balancemultiplier,
+        })
+      ),
+      listUserBadges(user.id),
+    ]);
 
     const activeBonusText = pointsBreakdown.activeBonuses
-      .filter((bonus) => bonus.value > 1)
-      .map((bonus) => `${bonus.label} x${bonus.value}`)
+      .filter((bonus: { value: number }) => bonus.value > 1)
+      .map((bonus: { label: string; value: number }) => `${bonus.label} x${bonus.value}`)
       .join("\n") || "Nenhum bonus ativo";
+    const badgeText = badges.length
+      ? badges
+          .map((badge) => `${badge.equipped ? "•" : "◦"} ${badge.name}`)
+          .join("\n")
+      : "Nenhuma badge";
+    const dashboardUrl = getDashboardUrl();
 
     const embed = new EmbedBuilder()
       .setColor(appConfig.discord.profile.embedColor)
@@ -141,15 +162,21 @@ createCommand({
       .addFields(
         { name: "Discord", value: `<@${user.discordId}>`, inline: true },
         { name: "Twitch", value: twitchDisplayName, inline: true },
-        { name: "Twitch ID", value: user.twitchId ?? "Nao vinculado", inline: false },
         { name: "Firecoins", value: `${appConfig.discord.profile.fireCoinsEmoji} ${user.balance ?? 0}`, inline: true },
         { name: "Horas Assistidas", value: `${formatWatchedHours(user.hoursWatched)}h`, inline: true },
         { name: "Warns Atuais", value: `${user.currentWarns ?? 0}`, inline: true },
         { name: "Warns Totais", value: `${user.totalWarns ?? 0}`, inline: true },
         { name: "Punicoes", value: `${user.totalPunishments ?? 0}`, inline: true },
-        { name: "Bonus Ativos", value: activeBonusText, inline: false }
+        { name: "Badges", value: badgeText, inline: false },
+        { name: "Bonus Ativos", value: activeBonusText, inline: false },
+        ...(isAdmin && user.twitchId
+          ? [{ name: "Twitch ID tecnico", value: user.twitchId, inline: false as const }]
+          : []),
+        ...(dashboardUrl
+          ? [{ name: "Dashboard", value: `[Abrir perfil web](${dashboardUrl})`, inline: false as const }]
+          : [])
       )
-      .setFooter({ text: `ID interno: ${user.id} • Vulkan Sentinel` })
+      .setFooter({ text: "Vulkan Sentinel" })
       .setTimestamp();
 
     await interaction.reply({ embeds: [embed], ephemeral: true });

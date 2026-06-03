@@ -2,6 +2,7 @@ import { env } from "#config";
 import crypto from "node:crypto";
 import { syncSubscriptionStatus } from "../twitch/events/subTracker.js";
 import { markStreamOffline, refreshLiveStatus } from "./liveStatus.js";
+import { notifyTwitchEngagement } from "./twitchEngagementNotifications.js";
 import { getTwitchAppAccessToken } from "./twitchAuth.js";
 
 type EventSubTransport = {
@@ -39,6 +40,8 @@ type EventSubPayload = {
 const EVENTSUB_TYPES = [
     "stream.online",
     "stream.offline",
+    "channel.update",
+    "channel.follow",
     "channel.subscribe",
     "channel.subscription.message",
     "channel.subscription.gift",
@@ -133,6 +136,34 @@ export async function handleEventSubNotification(payload: EventSubPayload) {
         return;
     }
 
+    if (type === "channel.update") {
+        await refreshLiveStatus("eventsub:channel.update");
+        return;
+    }
+
+    if (type === "channel.follow") {
+        await notifyTwitchEngagement({
+            kind: "follow",
+            twitchUserId: typeof event.user_id === "string" ? event.user_id : null,
+            twitchLogin: typeof event.user_login === "string" ? event.user_login : null,
+            twitchDisplayName: typeof event.user_name === "string" ? event.user_name : null,
+        });
+        return;
+    }
+
+    if (type === "channel.subscription.gift") {
+        await notifyTwitchEngagement({
+            kind: "gift_subscription",
+            twitchUserId: typeof event.user_id === "string" ? event.user_id : null,
+            twitchLogin: typeof event.user_login === "string" ? event.user_login : null,
+            twitchDisplayName: typeof event.user_name === "string" ? event.user_name : null,
+            tier: typeof event.tier === "string" ? event.tier : null,
+            totalGifted: typeof event.total === "number" ? event.total : null,
+            isAnonymous: typeof event.is_anonymous === "boolean" ? event.is_anonymous : false,
+        });
+        return;
+    }
+
     const { twitchId, username } = extractTwitchUser(event);
 
     if (!twitchId) {
@@ -156,6 +187,28 @@ export async function handleEventSubNotification(payload: EventSubPayload) {
         isSubscribed: true,
         source: `eventsub:${type}`,
     });
+
+    if (type === "channel.subscribe") {
+        await notifyTwitchEngagement({
+            kind: "subscription",
+            twitchUserId: typeof event.user_id === "string" ? event.user_id : null,
+            twitchLogin: typeof event.user_login === "string" ? event.user_login : null,
+            twitchDisplayName: typeof event.user_name === "string" ? event.user_name : null,
+            tier: typeof event.tier === "string" ? event.tier : null,
+        });
+        return;
+    }
+
+    if (type === "channel.subscription.message") {
+        await notifyTwitchEngagement({
+            kind: "resubscription",
+            twitchUserId: typeof event.user_id === "string" ? event.user_id : null,
+            twitchLogin: typeof event.user_login === "string" ? event.user_login : null,
+            twitchDisplayName: typeof event.user_name === "string" ? event.user_name : null,
+            tier: typeof event.tier === "string" ? event.tier : null,
+        });
+        return;
+    }
 }
 
 async function getExistingSubscriptions() {
@@ -185,12 +238,24 @@ async function getExistingSubscriptions() {
 async function createSubscription(type: (typeof EVENTSUB_TYPES)[number]) {
     const token = await getTwitchAppAccessToken();
     const { clientId, broadcasterId, callback, secret } = getEventSubConfig();
+    const moderatorUserId = env.TWITCH_BOT_ID ?? broadcasterId;
 
     if (!token || !clientId || !broadcasterId || !callback || !secret) {
         throw new Error(
             "Configuracao EventSub incompleta (token/client/callback/secret/broadcaster)."
         );
     }
+
+    const version = type === "channel.follow" ? "2" : "1";
+    const condition =
+        type === "channel.follow"
+            ? {
+                broadcaster_user_id: broadcasterId,
+                moderator_user_id: moderatorUserId,
+            }
+            : {
+                broadcaster_user_id: broadcasterId,
+            };
 
     const response = await fetch("https://api.twitch.tv/helix/eventsub/subscriptions", {
         method: "POST",
@@ -201,10 +266,8 @@ async function createSubscription(type: (typeof EVENTSUB_TYPES)[number]) {
         },
         body: JSON.stringify({
             type,
-            version: "1",
-            condition: {
-                broadcaster_user_id: broadcasterId,
-            },
+            version,
+            condition,
             transport: {
                 method: "webhook",
                 callback,

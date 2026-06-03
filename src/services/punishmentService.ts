@@ -1,5 +1,6 @@
 import { appConfig, env } from "#config";
 import { getDiscordClient } from "./discord.js";
+import { sendBotChatMessage } from "./twitchChat.js";
 import { sendTwitchWhisper, getTwitchUserById, getTwitchUserByLogin, timeoutTwitchUser } from "./twitchHelix.js";
 import { getTwitchClient, hasTwitchClient } from "./twitch.js";
 
@@ -170,7 +171,7 @@ export class PunishmentService {
 
     if (hasTwitchClient()) {
       const client = getTwitchClient();
-      await client.say(env.TWITCH_CHANNEL, `@${twitchLogin}, ${message}`);
+      await sendBotChatMessage(client, env.TWITCH_CHANNEL, `@${twitchLogin}, ${message}`);
     }
   }
 }

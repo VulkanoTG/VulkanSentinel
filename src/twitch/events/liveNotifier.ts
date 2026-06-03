@@ -7,12 +7,14 @@ import {
   type LiveStatusSnapshot,
 } from "../../services/liveStatus.js";
 import { type TwitchStream } from "../../services/twitchHelix.js";
+import { buildTwitchStreamPreviewUrl } from "../../services/twitchStreamPreview.js";
 
 function buildLiveEmbed(stream: TwitchStream) {
   const streamUrl = `https://twitch.tv/${env.TWITCH_CHANNEL}`;
-  const thumbnail = stream.thumbnail_url
-    .replace("{width}", "1280")
-    .replace("{height}", "720");
+  const thumbnail = buildTwitchStreamPreviewUrl({
+    stream,
+    cacheKey: `${stream.id}:${stream.started_at}:${Date.now()}`,
+  });
 
   return new EmbedBuilder()
     .setColor(appConfig.twitch.liveNotifier.embedColor)

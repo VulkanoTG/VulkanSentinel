@@ -1,5 +1,6 @@
 import { moderationService } from "../../services/moderationService.js";
 import { DiscordModerationPermissionError } from "../../services/punishmentService.js";
+import { sendBotChatMessage } from "../../services/twitchChat.js";
 import { createTwitchCommand } from "../base.js";
 import { isTwitchPointsAdmin } from "./points/shared.js";
 
@@ -8,12 +9,12 @@ createTwitchCommand({
   description: "Aplica warning progressivo na Twitch/Discord para usuarios vinculados",
   async run(client, channel, tags, args) {
     if (!isTwitchPointsAdmin(tags)) {
-      await client.say(channel, `@${tags.username}, voce nao tem permissao para usar este comando.`);
+      await sendBotChatMessage(client, channel, `@${tags.username}, você não tem permissão para usar este comando.`);
       return;
     }
 
     if (args.length < 2) {
-      await client.say(channel, `@${tags.username}, uso: !warn <nick> <motivo>`);
+      await sendBotChatMessage(client, channel, `@${tags.username}, uso: !warn <nick> <motivo>`);
       return;
     }
 
@@ -22,7 +23,7 @@ createTwitchCommand({
 
     const target = await moderationService.resolveTwitchTarget(nickInput);
     if (!target) {
-      await client.say(channel, `@${tags.username}, nao consegui resolver o usuario informado.`);
+      await sendBotChatMessage(client, channel, `@${tags.username}, não consegui localizar o usuário informado.`);
       return;
     }
 
@@ -39,7 +40,7 @@ createTwitchCommand({
       });
     } catch (error) {
       if (error instanceof DiscordModerationPermissionError) {
-        await client.say(channel, `@${tags.username}, ${error.message}`);
+        await sendBotChatMessage(client, channel, `@${tags.username}, ${error.message}`);
         return;
       }
 
@@ -51,16 +52,18 @@ createTwitchCommand({
     }
 
     if (result.status === "warned_and_punished") {
-      await client.say(
+      await sendBotChatMessage(
+        client,
         channel,
-        `@${tags.username}, warning registrado e punicao automatica aplicada por ${result.durationLabel}. Total de punicoes: ${result.totalPunishments}.`
+        `@${tags.username}, warning registrado e punição automática aplicada por ${result.durationLabel}. Total de punições: ${result.totalPunishments}.`
       );
       return;
     }
 
-    await client.say(
+    await sendBotChatMessage(
+      client,
       channel,
-      `@${tags.username}, warning aplicado. Warns atuais: ${result.currentWarns}/${result.threshold}. Total historico: ${result.totalWarns}.`
+      `@${tags.username}, warning aplicado. Warns atuais: ${result.currentWarns}/${result.threshold}. Total histórico: ${result.totalWarns}.`
     );
   },
 });

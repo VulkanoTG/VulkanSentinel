@@ -1,5 +1,5 @@
 import { env } from "#config";
-import { getTwitchAccessToken } from "./twitchAuth.js";
+import { getTwitchAccessToken, getTwitchAppAccessToken } from "./twitchAuth.js";
 // Types 
 type TwitchUser = {
   id: string;
@@ -179,6 +179,46 @@ export async function sendTwitchWhisper(
   if (!res.ok) {
     const body = await res.text();
     throw new Error(`Helix whisper failed: ${res.status} ${body}`);
+  }
+
+  return true;
+}
+
+export async function sendTwitchChatMessage(input: {
+  broadcasterId?: string;
+  senderId?: string;
+  message: string;
+  forSourceOnly?: boolean;
+}) {
+  const clientId = env.TWITCH_CLIENT_ID;
+  const appToken = await getTwitchAppAccessToken();
+  const broadcasterId = input.broadcasterId ?? env.TWITCH_BROADCASTER_ID;
+  const senderId = input.senderId ?? env.TWITCH_BOT_ID;
+
+  if (!clientId || !appToken || !broadcasterId || !senderId) {
+    throw new Error(
+      "Missing TWITCH_CLIENT_ID, TWITCH_BROADCASTER_ID, TWITCH_BOT_ID or app access token for Twitch chat message."
+    );
+  }
+
+  const res = await fetch("https://api.twitch.tv/helix/chat/messages", {
+    method: "POST",
+    headers: {
+      "Client-ID": clientId,
+      "Authorization": `Bearer ${appToken}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      broadcaster_id: broadcasterId,
+      sender_id: senderId,
+      message: input.message,
+      for_source_only: input.forSourceOnly ?? true,
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Helix chat message failed: ${res.status} ${body}`);
   }
 
   return true;

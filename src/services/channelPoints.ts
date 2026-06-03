@@ -1,6 +1,7 @@
 import { appConfig, env } from "#config";
 import { prisma } from "#database";
 import { GUILD_EVENT_START_BUFFER_MS, closeChannelPointsGuildEvent } from "./channelPointGuildEvent.js";
+import { publishEventOverlayMessage } from "./chatOverlay.js";
 import { getTwitchClient, hasTwitchClient } from "./twitch.js";
 
 const defaultChannelPointsConfig = appConfig.twitch.channelPoints;
@@ -169,6 +170,28 @@ async function announceEventStarted(eventName: string, multiplier: number) {
   }
 }
 
+function formatEventDuration(durationMs: number) {
+  const totalSeconds = Math.max(1, Math.ceil(durationMs / 1000));
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+  }
+
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+
+  if (minutes > 0) {
+    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  }
+
+  return `${seconds}s`;
+}
+
 function scheduleEventEnd(eventName: string, durationMs: number) {
   clearEventTimeout();
   console.log(`[ChannelPoints] Encerramento automatico agendado para o evento ${eventName} em ${durationMs}ms.`);
@@ -182,7 +205,12 @@ function scheduleEventEnd(eventName: string, durationMs: number) {
 }
 
 function activateScheduledEvent() {
-  if (!channelPointsConfig.activeEventName || channelPointsConfig.eventMultiplierActive) {
+  if (
+    !channelPointsConfig.activeEventName ||
+    !channelPointsConfig.eventStartsAt ||
+    !channelPointsConfig.eventEndsAt ||
+    channelPointsConfig.eventMultiplierActive
+  ) {
     return;
   }
 
@@ -194,6 +222,11 @@ function activateScheduledEvent() {
     channelPointsConfig.activeEventName,
     channelPointsConfig.eventMultiply
   );
+
+  publishEventOverlayMessage({
+    username: `Vulkan Sentinel x${channelPointsConfig.eventMultiply}`,
+    message: `evento ${channelPointsConfig.activeEventName} iniciado por ${formatEventDuration(channelPointsConfig.eventEndsAt.getTime() - channelPointsConfig.eventStartsAt.getTime())}`,
+  });
 }
 
 function scheduleEventActivation(eventName: string, startsInMs: number) {
